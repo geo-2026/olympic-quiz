@@ -1,0 +1,11 @@
+{
+  "name": "olympic-quiz",
+  "version": "1.0.0",
+  "description": "통합사회 올림픽 형성평가 게임 — 교사 브라우저가 호스트가 되는 정적 웹앱 (GitHub Pages)",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "serve": "python -m http.server 8766 --bind 127.0.0.1"
+  }
+}

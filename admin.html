@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>관리자 · 통합사회 올림픽 형성평가</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;600;700&family=Share+Tech+Mono&display=swap">
+<link rel="stylesheet" href="css/common.css">
+<link rel="stylesheet" href="css/admin.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏅</text></svg>">
+</head>
+<body class="admin">
+<div id="app">
+  <header id="topbar">
+    <div class="brand">🏅 올림픽 형성평가</div>
+    <div id="progress"></div>
+    <div class="right"><span id="net">연결 준비</span><button class="btn sm" id="btnSound">🔇 소리 켜기</button><button class="btn sm" id="btnFull">전체 화면</button><button class="btn sm ghost" id="btnPanel">조작판 숨기기</button></div>
+  </header>
+  <aside id="panel">
+    <nav class="tabs"><button data-tab="room" class="active">방</button><button data-tab="questions">문항</button><button data-tab="students">학생·팀</button><button data-tab="settings">설정</button></nav>
+    <section id="tab-room" class="active">
+      <h3>방 코드</h3>
+      <div class="code" id="roomCode">----</div>
+      <div id="qr"></div>
+      <div class="url" id="joinUrl"></div>
+      <div class="row"><button class="btn sm" id="btnCopyUrl">주소 복사</button><button class="btn sm" id="btnOpenPlay">학생 화면 열기(새 탭)</button></div>
+      <div class="small muted" id="netHelp">학생은 QR을 찍거나 주소로 들어와 방 코드·학번·이름을 입력합니다. 이 브라우저가 서버 역할을 하므로 수업 중에는 이 탭을 닫거나 새로 고치지 마세요(새로 고쳐도 진행 상태는 이어집니다).</div>
+      <h3>이 방 관리</h3>
+      <div class="row"><button class="btn sm" id="btnNewRoom">새 방 만들기</button><button class="btn sm danger" id="btnResetRoom">방 초기화(학생 삭제)</button></div>
+      <div class="small muted">같은 브라우저에서 진행 중인 게임이 있으면 페이지를 열 때 이어서 할지 물어봅니다.</div>
+    </section>
+    <section id="tab-questions">
+      <h3>문항 업로드</h3>
+      <input type="file" id="fileQ" accept=".xlsx,.xls,.csv">
+      <div class="row"><button class="btn sm" id="btnTemplate">엑셀 양식 내려받기</button><button class="btn sm" id="btnSample">예시 문항 불러오기</button></div>
+      <div class="small muted">양식 : 번호·유형·문제·보기1~4·정답·해설·제한시간(초)·글자수힌트·이미지주소. 유형 열이 없으면 시트 이름(OX·선택형·단답형)으로 유형을 정합니다.</div>
+      <div class="row">
+        <label class="f">앞에서부터 사용할 문항 수 <input type="number" id="qLimit" min="1" max="200" style="width:90px"></label>
+        <label class="f">유형 섞기 <select id="qMix"><option value="keep">파일 순서대로</option><option value="interleave">OX·선다·주관식 번갈아</option><option value="shuffle">무작위</option></select></label>
+      </div>
+      <div id="qInfo" class="small"></div>
+      <div class="qwrap"><table class="qtable" id="qTable"></table></div>
+      <div class="row"><button class="btn primary sm" id="btnConfirmQ" disabled>이 문항으로 확정</button><span id="qConfirmed" class="small muted"></span></div>
+      <h3>종목 배정 미리보기</h3>
+      <table class="qtable" id="evTable"></table>
+    </section>
+    <section id="tab-students">
+      <h3>학생과 팀</h3>
+      <div id="teamWarn"></div>
+      <div class="row"><button class="btn sm" id="btnShuffle">팀 무작위 다시 섞기</button><span class="small muted" id="teamCounts"></span></div>
+      <div class="teams" id="teamLists"></div>
+      <div class="small muted">⇄ 다른 팀으로 옮기기 · ✕ 내보내기. 이미 채점한 문항의 점수는 원래 팀에 남습니다.</div>
+    </section>
+    <section id="tab-settings">
+      <h3>설정</h3>
+      <label class="f">학번 자릿수 <select id="setNoLen"><option value="4">4자리</option><option value="5" selected>5자리</option><option value="6">6자리</option></select></label>
+      <label class="f">종목 승리 보너스(점, 0~100) <input type="number" id="setBonus" min="0" max="100" value="0"></label>
+      <label class="f"><span><input type="checkbox" id="setTop"> 최종 결과에 팀별 점수 기여 TOP 3 표시</span></label>
+      <label class="f">토끼팀 이름 <input type="text" id="setNameR" maxlength="12" placeholder="토끼팀"></label>
+      <label class="f">고양이팀 이름 <input type="text" id="setNameC" maxlength="12" placeholder="고양이팀"></label>
+      <label class="f">음량 <input type="range" id="setVol" min="0" max="1" step="0.05" value="0.6"></label>
+      <div class="row"><button class="btn sm" id="btnSaveSettings">설정 저장</button></div>
+      <h3>통신 방식</h3>
+      <div class="small muted" id="transportInfo"></div>
+      <div class="row"><a class="btn sm" id="btnLocalMode" href="admin.html?net=local">같은 기기 시연 모드</a></div>
+    </section>
+  </aside>
+  <main id="stagewrap"><div id="stage" class="fxroot"></div><div class="countdown" id="countdown"></div></main>
+  <footer id="controls">
+    <button class="btn primary" id="cStart">게임 시작</button>
+    <button class="btn primary" id="cOpen">문제 시작</button>
+    <button class="btn" id="cClose">지금 마감</button>
+    <button class="btn" id="cReveal">정답 공개</button>
+    <button class="btn" id="cScene">경기 보기</button>
+    <button class="btn" id="cNext">다음 문제</button>
+    <button class="btn" id="cNextEvent">다음 종목 시작</button>
+    <button class="btn" id="cExport">결과 엑셀 내려받기</button>
+    <span class="spacer"></span>
+    <button class="btn danger" id="cEnd">게임 종료</button>
+  </footer>
+</div>
+<div class="modal" id="modal" hidden><div class="box" id="modalBox"></div></div>
+<div class="toast" id="toast"></div>
+<script src="lib/peerjs.min.js"></script>
+<script src="lib/xlsx.full.min.js"></script>
+<script src="lib/qrcode.min.js"></script>
+<script type="module" src="js/admin.js"></script>
+</body>
+</html>

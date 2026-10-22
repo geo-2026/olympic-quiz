@@ -1,0 +1,67 @@
+/* 공통 : 블록 스타일 톤, 팀 색, 타이머 긴장 효과 (명세서 3.3 · 7.2) */
+:root{
+  --bg:#0e1626;--panel:#16223a;--panel2:#1d2b47;--line:#283a5e;--fg:#eef3fb;--muted:#93a3c2;
+  --led:#ffd23d;--cyan:#6ad2ff;--ok:#4fd18b;--no:#ff5a5a;--warn:#ffb347;
+  --rabbit:#ff8fb6;--rabbit-dk:#c94f7f;--cat:#ffa64d;--cat-dk:#c7701a;
+  --display:"Black Han Sans","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --mono:"Share Tech Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.5;-webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:var(--display);font-weight:400;margin:0;line-height:1.1}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+button:disabled{opacity:.4;cursor:default}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.r{color:var(--rabbit)} .c{color:var(--cat)}
+.bg-r{background:var(--rabbit);color:#2a0f1a} .bg-c{background:var(--cat);color:#2a1700}
+.muted{color:var(--muted)} .small{font-size:.85em}
+.face{image-rendering:pixelated;border-radius:6px;vertical-align:middle;background:#0b1424}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:12px;padding:12px 18px;font-weight:600;font-size:1rem;min-height:48px}
+.btn.primary{background:var(--led);color:#1a1300;border-color:var(--led)}
+.btn.danger{background:#b3261e;color:#fff;border-color:#b3261e}
+.btn.ghost{background:transparent}
+.btn.sm{padding:6px 12px;min-height:36px;font-size:.9rem;border-radius:9px}
+.badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.8rem;font-weight:700;background:var(--panel2)}
+.badge.r{background:var(--rabbit);color:#2a0f1a} .badge.c{background:var(--cat);color:#2a1700}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.gauge{height:18px;border-radius:9px;background:rgba(255,255,255,.1);overflow:hidden;position:relative}
+.gauge>i{display:block;height:100%;border-radius:9px;transition:width .6s cubic-bezier(.2,.9,.3,1.2)}
+.gauge.r>i{background:var(--rabbit)} .gauge.c>i{background:var(--cat)}
+
+/* 타이머 */
+.timerwrap{display:flex;align-items:center;gap:14px}
+.tnum{font-family:var(--mono);font-size:2.2rem;min-width:2.2em;text-align:center;transition:transform .2s;color:var(--ok)}
+.tbar{flex:1;height:14px;border-radius:7px;background:rgba(255,255,255,.12);overflow:hidden}
+.tbar>i{display:block;height:100%;width:100%;background:var(--ok);border-radius:7px;transition:background .3s}
+.t-yellow .tbar>i,.t-yellow .tnum{background:var(--led)} .t-yellow .tnum{background:none;color:var(--led)}
+.t-orange .tbar>i{background:var(--warn)} .t-orange .tnum{color:var(--warn);transform:scale(1.25)}
+.t-red .tbar>i{background:var(--no)} .t-red .tnum{color:var(--no);transform:scale(1.4);animation:blink .5s steps(2,start) infinite}
+.t-red.t-submitted .tnum{animation:none;transform:scale(1)}
+.t-red:not(.t-submitted) .fxroot{box-shadow:inset 0 0 0 6px rgba(255,90,90,.75);animation:pulse .6s ease-in-out infinite}
+.t-last3:not(.t-submitted) .fxroot{animation:shake .4s ease-in-out infinite,pulse .6s ease-in-out infinite}
+.t-over .tnum{color:var(--no);transform:none;animation:none}
+.countdown{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;font-family:var(--display);font-size:min(40vw,320px);color:#fff;text-shadow:0 0 30px rgba(255,90,90,.9),0 6px 0 #5a0000;opacity:.92;z-index:5}
+.countdown:empty{display:none}
+.countdown.pop{animation:popdown .9s ease-out}
+@keyframes blink{50%{opacity:.25}}
+@keyframes pulse{0%,100%{box-shadow:inset 0 0 0 6px rgba(255,90,90,.75)}50%{box-shadow:inset 0 0 0 14px rgba(255,90,90,.35)}}
+@keyframes shake{0%,100%{transform:translate(0,0)}25%{transform:translate(3px,-2px)}50%{transform:translate(-3px,2px)}75%{transform:translate(2px,2px)}}
+@keyframes popdown{0%{transform:scale(1.6);opacity:1}100%{transform:scale(.6);opacity:0}}
+@media (prefers-reduced-motion: reduce){.t-red .tnum,.t-red .fxroot,.t-last3 .fxroot,.countdown.pop{animation:none!important}.t-red:not(.t-submitted) .fxroot{box-shadow:inset 0 0 0 6px rgba(255,90,90,.6)}}
+.timeover{font-family:var(--display);color:var(--no);font-size:2rem;text-align:center}
+
+/* 확인 상자 */
+.modal{position:fixed;inset:0;background:rgba(5,10,20,.75);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+.modal[hidden]{display:none}
+.modal .box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;max-width:520px;width:100%;display:flex;flex-direction:column;gap:14px}
+.modal .box h3{font-size:1.4rem}
+.modal .row{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#000;color:#fff;padding:10px 18px;border-radius:10px;z-index:60;opacity:0;transition:opacity .3s;pointer-events:none;max-width:90vw}
+.toast.show{opacity:.95}
+.confetti{position:absolute;top:-10px;width:10px;height:14px;opacity:.95;animation:fall linear forwards;z-index:4;pointer-events:none}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:.6}}
+.medal{display:inline-block;width:1.3em;height:1.3em;border-radius:50%;vertical-align:middle;border:2px solid #fff3}
+.medal.r{background:var(--rabbit)} .medal.c{background:var(--cat)} .medal.draw{background:#8892a6}

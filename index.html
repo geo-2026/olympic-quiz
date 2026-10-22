@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>통합사회 올림픽 형성평가</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;600;700&family=Share+Tech+Mono&display=swap">
+<link rel="stylesheet" href="css/common.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏅</text></svg>">
+<style>
+main{max-width:720px;margin:0 auto;padding:32px 20px 60px;display:flex;flex-direction:column;gap:18px}
+h1{font-size:2.4rem} h1 .r{color:var(--rabbit)} h1 .c{color:var(--cat)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.two a{display:flex;flex-direction:column;gap:8px;text-decoration:none;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px}
+.two a b{font-family:var(--display);font-size:1.5rem}
+.two a.t{border-color:var(--led)} .two a.s{border-color:var(--cyan)}
+ol{padding-left:20px;line-height:1.7}
+.sports{display:flex;flex-wrap:wrap;gap:8px}
+.sports span{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px 12px}
+@media (max-width:560px){.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+  <h1>🏅 통합사회 올림픽 형성평가<br><span class="r">토끼팀</span> 대 <span class="c">고양이팀</span></h1>
+  <p class="muted">형성평가를 팀 대항 올림픽 경기로! 문항을 풀면 팀 점수(정답률·입력 시간)가 쌓이고, 종목마다 블록 캐릭터들이 경기를 치릅니다.</p>
+  <div class="two">
+    <a class="t" href="admin.html"><b>👩‍🏫 교사 · 관리자 화면</b><span>방 만들기, 문항 업로드, 진행 조작, 프로젝터 무대</span></a>
+    <a class="s" href="play.html"><b>📱 학생 · 입장</b><span>방 코드 · 학번 · 이름으로 입장해 문제 풀기</span></a>
+  </div>
+  <div class="card">
+    <h3 style="color:var(--led)">수업 흐름</h3>
+    <ol>
+      <li>교사가 <b>관리자 화면</b>을 열면 방 코드와 QR이 생깁니다(이 브라우저가 서버 역할).</li>
+      <li>[문항] 탭에서 엑셀을 올리거나 예시 문항을 불러와 확정합니다.</li>
+      <li>학생은 QR로 들어와 학번·이름을 입력하면 자동으로 팀이 정해집니다.</li>
+      <li>[게임 시작] → 문항마다 [문제 시작] → [정답 공개] → 종목 경기 → 종목 전환 → 최종 결과 · 엑셀 내보내기.</li>
+    </ol>
+    <div class="sports"><span>🪢 줄다리기 1~3</span><span>⛷️ 스키점프 4~6</span><span>🛷 스켈레톤 7~9</span><span>🏃 멀리뛰기 10~12</span><span>🏹 양궁 13~22</span><span>🎯 사격 23~</span></div>
+  </div>
+  <p class="small muted">학생 기록(학번·이름·답)은 교사 브라우저에만 저장되고 외부 서비스로 보내지 않습니다. 결과는 교사가 엑셀로 내려받습니다.</p>
+</main>
+</body>
+</html>

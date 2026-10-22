@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>토끼팀 대 고양이팀 줄다리기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;600&family=Share+Tech+Mono&display=swap">
+<link rel="stylesheet" href="../lib/duel.css">
+<style>.range{background:#a9d8f2}</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div><div class="eyebrow">Tug of War · 3 vs 3 · 한 판 승부</div>
+      <h1><span class="r" id="h-rabbit">토끼팀</span> 대 <span class="c" id="h-cat">고양이팀</span> 줄다리기</h1></div>
+    <div class="status" id="status">대결 준비</div>
+  </header>
+  <div class="card"><div class="range" id="range">
+    <div class="hud"><span class="chip r" id="hr">토끼팀</span><span class="chip" id="hm">줄 표시 <b>0.00m</b></span><span class="spacer"></span><span class="chip c" id="hc">고양이팀</span></div>
+    <div class="bars">
+      <div class="bar r"><div class="lab"><span id="br-n">토끼팀 힘</span><b id="br-v">0</b></div><div class="trk"><div class="fill" id="br-f"></div></div></div>
+      <div class="bar c"><div class="lab"><span id="bc-n">고양이팀 힘</span><b id="bc-v">0</b></div><div class="trk"><div class="fill" id="bc-f"></div></div></div>
+    </div>
+    <div class="banner" id="banner"></div>
+  </div></div>
+  <div class="controls"><button class="btn primary" id="next">한 판 당기기</button><button class="btn" id="reset">처음부터</button></div>
+  <p class="credit">규칙: 3문항 합산 점수가 큰 팀이 4.5초 동안 줄을 끌어옵니다. 줄 가운데 표시가 2.0m 선(승리선)에 닿으면 승리선 통과! 점수 차이가 작으면 아슬아슬하게, 크면 일방적으로 끌려갑니다. 화면은 재생이고, 승패는 문항 점수로 이미 정해져 있어요.</p>
+</div>
+<script src="../lib/three.min.js"></script>
+<script>window.THREE||document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>')</script>
+<script src="../lib/duel-common.js"></script>
+<script>
+const $=id=>document.getElementById(id),{APP,names,auto}=DC.params(),REDUCED=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+const range=$('range'),renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputEncoding=THREE.sRGBEncoding;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+range.prepend(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#a9d8f2');scene.fog=new THREE.Fog('#cfe9f7',30,90);
+const camera=new THREE.PerspectiveCamera(40,2,.1,200);
+scene.add(new THREE.HemisphereLight('#eef8ff','#5d8a3a',.8));
+const sun=new THREE.DirectionalLight('#fff4dd',.95);sun.position.set(6,12,6);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-10,right:10,top:10,bottom:-10,near:1,far:40});scene.add(sun);
+// 잔디·선
+const grassT=DC.ctex(DC.pxCanvas(16,16,x=>{const r=DC.seeded(9);for(let j=0;j<16;j++)for(let i=0;i<16;i++){x.fillStyle=DC.shade(j<8?'#6aa84f':'#5e9a45',.94+r()*.12);x.fillRect(i,j,1,1);}}),true);
+grassT.wrapS=grassT.wrapT=THREE.RepeatWrapping;grassT.repeat.set(20,20);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(120,120),new THREE.MeshLambertMaterial({map:grassT}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+const lineM=c=>new THREE.MeshBasicMaterial({color:c});
+const mkLine=(x,c,w)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(w,6),lineM(c));m.rotation.x=-Math.PI/2;m.position.set(x,.01,0);scene.add(m);return m;};
+mkLine(0,'#ffffff',.1);mkLine(-2,'#ff3b3b',.14);mkLine(2,'#ff3b3b',.14);
+[-2,2].forEach(x=>{const b=new THREE.Mesh(new THREE.PlaneGeometry(1.2,.4),new THREE.MeshBasicMaterial({map:DC.textTex('승리선 2.0m',240,80,'#ff3b3b','#ffffff','bold 40px "Black Han Sans",sans-serif'),side:THREE.DoubleSide}));b.position.set(x,.9,-3.3);scene.add(b);});
+// 관중(블록) 뒤쪽
+{const r=DC.seeded(31);for(let i=0;i<34;i++){const x=-14+i*.85,z=-6-(i%3)*.9;const g=new THREE.Group();g.position.set(x,0,z);scene.add(g);
+  DC.box(.5,.9,.35,DC.solid(['#e8564a','#2f5bd6','#ffd23d','#4fae7a','#9b6bd6'][i%5]),0,.95,0,g);DC.box(.45,.45,.45,DC.solid(['#f2c9a0','#e8963a','#8b5a2b','#f2f2f2'][i%4]),0,1.65,0,g);DC.box(.5,.5,.35,DC.solid('#2a3550'),0,.25,0,g);}}
+// 텐트와 깃발
+DC.box(.1,3,.1,DC.solid('#d8dde3'),-9,1.5,-5,scene);DC.box(.1,3,.1,DC.solid('#d8dde3'),9,1.5,-5,scene);
+[[-9,'#ff8fb6'],[9,'#ffa64d']].forEach(([x,c])=>DC.box(1,.6,.04,DC.solid(c),x+.55,2.7,-5,scene));
+// 줄 : 가운데 표시 + 팀 쪽 손잡이 띠
+const world=new THREE.Group();scene.add(world); // 줄과 선수 전체가 함께 움직임
+const rope=DC.box(14,.07,.07,DC.LM(DC.ctex(DC.noiseCanvas('#c9a86a',5,16,2,.18),true)),0,1.0,0,world);
+const marker=DC.box(.12,.2,.2,DC.solid('#ff3b3b'),0,1.0,0,world);
+const flag=new THREE.Mesh(new THREE.PlaneGeometry(.3,.22),new THREE.MeshBasicMaterial({color:'#ff3b3b',side:THREE.DoubleSide}));flag.position.set(.15,1.3,0);world.add(flag);
+DC.box(.03,.3,.03,DC.solid('#333'),0,1.25,0,world);
+// 선수 : 토끼팀 왼쪽(-x, +x 방향을 봄), 고양이팀 오른쪽
+const T={rabbit:{name:'토끼팀',k:'rabbit',side:-1,members:[]},cat:{name:'고양이팀',k:'cat',side:1,members:[]}};
+Object.values(T).forEach(t=>{for(let i=0;i<3;i++){const f=DC.makeFigure(t.k,DC.COLORS[t.k],{bib:String(i+1)});f.base=t.side*(1.4+i*.95);f.root.position.set(f.base,0,0);f.root.rotation.y=-t.side*Math.PI/2;
+  f.armL.rotation.x=1.25;f.armR.rotation.x=1.25;f.body.rotation.x=.32;f.legL.rotation.x=-.5;f.legR.rotation.x=.25;world.add(f.root);t.members.push(f);
+  const sh=new THREE.Mesh(new THREE.CircleGeometry(.45,16),new THREE.MeshBasicMaterial({color:'#2f4f2f',transparent:true,opacity:.25,depthWrite:false}));sh.rotation.x=-Math.PI/2;sh.position.set(f.base,.02,0);world.add(sh);f.shadow=sh;}});
+
+/* ---------- 경기 ---------- */
+const B=DC.banner($('banner'));let busy=false,play=null,t0=0,offset=0,scores={rabbit:0,cat:0};
+function setNames(a,b){if(a){T.rabbit.name=String(a).slice(0,12);}if(b){T.cat.name=String(b).slice(0,12);}
+  $('h-rabbit').textContent=T.rabbit.name;$('h-cat').textContent=T.cat.name;$('hr').textContent=T.rabbit.name;$('hc').textContent=T.cat.name;$('br-n').textContent=T.rabbit.name+' 힘';$('bc-n').textContent=T.cat.name+' 힘';}
+function bars(r,c){$('br-v').textContent=r.toFixed(1);$('bc-v').textContent=c.toFixed(1);$('br-f').style.width=Math.min(100,r/450*100)+'%';$('bc-f').style.width=Math.min(100,c/450*100)+'%';}
+function status(s){$('status').textContent=s;}
+/** 결과 재생. m = { scores:{rabbit,cat}, winner, result:{rabbit:{value,fail},cat:{value,fail}}, finish, questions } */
+function playResult(m){
+  if(busy)return false;busy=true;
+  scores=m.scores||{rabbit:0,cat:0};const r=m.result||{rabbit:{value:0},cat:{value:0}};
+  play={winner:m.winner||'draw',pull:+(r.rabbit.value||0),fail:{rabbit:!!r.rabbit.fail,cat:!!r.cat.fail},finish:!!m.finish||Math.abs(+r.rabbit.value||0)>=2,questions:m.questions||[]};
+  offset=0;world.position.x=0;Object.values(T).forEach(t=>t.members.forEach(f=>{f.root.position.x=f.base;f.body.rotation.x=.32;f.root.position.y=0;}));
+  bars(0,0);
+  B.show(`${play.questions.length||3}문항 합산`,`${T.rabbit.name} ${(+scores.rabbit).toFixed(1)} : ${(+scores.cat).toFixed(1)} ${T.cat.name}`);
+  status('준비 … 당겨!');
+  setTimeout(()=>{t0=performance.now();play.phase='pull';status('당기는 중');},1600);return true;
+}
+const DUR=4.5;
+function step(t,dt){
+  if(!play)return;
+  const el=(t-t0)/1000;
+  if(play.phase==='pull'){
+    const u=DC.clamp(el/DUR,0,1),e=DC.smooth(u);
+    // 줄 표시 : 토끼팀이 끌어오면 -x 로. 흔들림은 초반에 크고 점점 작아짐
+    const wob=(REDUCED?0:1)*.12*Math.sin(el*9)*(1-u)*(play.winner==='draw'?1.6:1);
+    offset=-play.pull*e+wob;world.position.x=offset;
+    const r=+scores.rabbit,c=+scores.cat;bars(r*DC.smooth(u*1.4),c*DC.smooth(u*1.4));
+    $('hm').innerHTML=`줄 표시 <b>${(-offset>=0?'+':'')+(-offset).toFixed(2)}m</b> <span style="opacity:.8">(${T.rabbit.name} 쪽 +)</span>`;
+    Object.values(T).forEach(team=>team.members.forEach((f,i)=>{
+      const losing=play.winner!=='draw'&&play.winner!==team.k,fail=play.fail[team.k];
+      const heave=Math.sin(el*9+i*.7)*(REDUCED?0:1);
+      f.body.rotation.x=.32+(losing?.14*e:-.06*e)+heave*.06;f.root.position.y=Math.abs(heave)*.03;
+      f.legL.rotation.x=-.5+heave*.15;f.legR.rotation.x=.25-heave*.15;
+      if(fail){f.body.rotation.x=.32-1.1*e;f.root.position.x=f.base-team.side*.6*e;} // 힘을 못 써 앞으로 미끄러짐
+      f.shadow.position.x=f.root.position.x;}));
+    if(u>=1){play.phase='end';play.tEnd=t;
+      const w=play.winner,wn=w==='draw'?null:T[w];
+      if(play.finish&&wn)B.show('승리선 통과!',`${wn.name} 승리 · ${Math.abs(play.pull).toFixed(2)}m 끌어옴`,true);
+      else if(wn)B.show(`${wn.name} 승리!`,`줄을 ${Math.abs(play.pull).toFixed(2)}m 끌어왔어요 · ${T.rabbit.name} ${(+scores.rabbit).toFixed(1)} : ${(+scores.cat).toFixed(1)} ${T.cat.name}`,true);
+      else B.show('무승부!','줄이 제자리 · 두 팀 점수가 같아요',true);
+      status(wn?`${wn.name} 승리`:'무승부');
+      // 진 팀 중 정답자 0명(fail)이면 넘어짐
+      Object.values(T).forEach(team=>{if(play.fail[team.k]&&wn&&wn!==team)team.members.forEach(f=>{f.fall=true;});});
+      setTimeout(()=>{bridge.emit('done',{index:1,pull:play.pull,winner:play.winner});busy=false;if(auto)setTimeout(demo,4000);},1800);}
+  } else if(play.phase==='end'){
+    const e=DC.clamp((t-play.tEnd)/600,0,1);
+    Object.values(T).forEach(team=>team.members.forEach((f,i)=>{
+      if(f.fall){f.body.rotation.x=.32-1.1-.5*e;f.root.position.y=0;}
+      else if(play.winner===team.k&&!REDUCED){f.root.position.y=Math.abs(Math.sin(t/1000*6+i))*.18;f.armL.rotation.x=1.25+1.6*e;f.armR.rotation.x=1.25+1.6*e;}
+      f.shadow.position.x=f.root.position.x;}));
+  }
+}
+function demo(){const a=Math.round(Math.random()*450),b=Math.round(Math.random()*450),w=a===b?'draw':a>b?'rabbit':'cat',d=Math.abs(a-b)/450,pull=w==='draw'?0:Math.min(2,Math.round((0.3+1.7*d)*100)/100);
+  playResult({scores:{rabbit:a,cat:b},winner:w,result:{rabbit:{value:w==='rabbit'?pull:-pull,fail:a===0},cat:{value:w==='cat'?pull:-pull,fail:b===0}},finish:pull>=2,questions:[1,2,3]});}
+function reset(){play=null;busy=false;offset=0;world.position.x=0;B.hide();bars(0,0);status('대결 준비');$('hm').innerHTML='줄 표시 <b>0.00m</b>';
+  Object.values(T).forEach(t=>t.members.forEach(f=>{f.fall=false;f.root.position.set(f.base,0,0);f.body.rotation.x=.32;f.armL.rotation.x=1.25;f.armR.rotation.x=1.25;f.shadow.position.x=f.base;}));}
+/* ---------- 카메라·루프 ---------- */
+function resize(){const w=range.clientWidth,h=range.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+new ResizeObserver(resize).observe(range);resize();
+let last=performance.now();
+function loop(ms){const dt=Math.min(.05,(ms-last)/1000);last=ms;step(ms,dt);
+  const cx=offset*.5;camera.position.lerp(V(cx,4.2,11.5),.08);camera.lookAt(cx,.9,0);renderer.render(scene,camera);requestAnimationFrame(loop);}
+const bridge=DC.bridge('tugDuel',{playResult,names:m=>setNames(m.names&&m.names[0],m.names&&m.names[1]),eventSummary:m=>B.show(m.title||'',m.text||'',true),reset,pull:m=>demo()});
+$('next').onclick=()=>{if(!busy)demo();};$('reset').onclick=reset;
+if(APP||new URLSearchParams(location.search).get('ui')==='min')document.documentElement.classList.add('ui-min');
+if(names.length)setNames(names[0],names[1]);
+requestAnimationFrame(loop);
+if(auto)setTimeout(demo,1200);
+bridge.emit('ready',{});
+</script>
+</body>
+</html>

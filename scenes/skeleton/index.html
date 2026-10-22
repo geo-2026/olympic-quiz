@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>토끼팀 대 고양이팀 스켈레톤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;600&family=Share+Tech+Mono&display=swap">
+<link rel="stylesheet" href="../lib/duel.css">
+<style>.range{background:#dbe9f5}.chip.lane{min-width:26%}</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div><div class="eyebrow">Skeleton · 1 run · 1 vs 1</div>
+      <h1><span class="r" id="h-rabbit">토끼팀</span> 대 <span class="c" id="h-cat">고양이팀</span> 스켈레톤</h1></div>
+    <div class="status" id="status">대결 준비</div>
+  </header>
+  <div class="card"><div class="range" id="range">
+    <div class="hud"><span class="chip r lane" id="hr"><span id="hr-n">토끼팀</span><span class="big" id="hr-t">0.00</span><span id="hr-s">0 km/h</span></span>
+      <span class="chip" id="hm">주행 1회 · 1,250m 트랙</span><span class="spacer"></span>
+      <span class="chip c lane" id="hc"><span id="hc-n">고양이팀</span><span class="big" id="hc-t">0.00</span><span id="hc-s">0 km/h</span></span></div>
+    <div class="banner" id="banner"></div>
+  </div></div>
+  <div class="controls"><button class="btn primary" id="next">주행 시작</button><button class="btn" id="reset">처음부터</button></div>
+  <p class="credit">규칙: 3문항 합산 점수가 큰 팀의 기록이 더 빠릅니다(점수 차이가 클수록 기록 차이도 큼). 두 팀이 나란히 놓인 쌍둥이 트랙을 동시에 내려오고, 결승 기록은 점수로 정해진 값과 같아요. 정답자가 없는 팀은 벽에 여러 번 부딪힙니다. 주행 시간은 실제보다 빠르게 보여줘요.</p>
+</div>
+<script src="../lib/three.min.js"></script>
+<script>window.THREE||document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>')</script>
+<script src="../lib/duel-common.js"></script>
+<script>
+const $=id=>document.getElementById(id),{APP,names,auto}=DC.params(),REDUCED=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+const range=$('range'),renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputEncoding=THREE.sRGBEncoding;renderer.shadowMap.enabled=true;
+range.prepend(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#dbe9f5');scene.fog=new THREE.Fog('#e6eff8',60,220);
+const camera=new THREE.PerspectiveCamera(50,2,.1,600);
+scene.add(new THREE.HemisphereLight('#ffffff','#b9cfe6',.9));
+const sun=new THREE.DirectionalLight('#fff6e6',.75);sun.position.set(-30,60,-20);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-30,right:30,top:30,bottom:-30,near:1,far:200});scene.add(sun);
+/* ---------- 트랙 : z 를 따라 내려가며(+z) 좌우로 굽고 완만히 내려감. 실제 1,250m 를 300m 길이로 압축 ---------- */
+const LEN=300,W=11;
+const cx=z=>7*Math.sin(z/38)+4*Math.sin(z/17+1.3), cy=z=>-z*.12, slope=()=>-.12;
+function at(z){return {x:cx(z),y:cy(z),dx:(cx(z+.5)-cx(z-.5))}}
+function ribbonTrack(){
+  const pos=[],uv=[],idx=[];let i=0;
+  for(let z=-20;z<=LEN+40;z+=2){const p=at(z);const nx=1,nz=-p.dx;const l=Math.hypot(nx,nz);
+    pos.push(p.x-nx/l*W/2,p.y,z-nz/l*W/2,p.x+nx/l*W/2,p.y,z+nz/l*W/2);uv.push(0,z/4,1,z/4);
+    if(i){const a=(i-1)*2;idx.push(a,a+2,a+1,a+1,a+2,a+3);}i++;}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(idx);g.computeVertexNormals();
+  const ice=DC.ctex(DC.pxCanvas(16,16,x=>{const r=DC.seeded(4);for(let j=0;j<16;j++)for(let k=0;k<16;k++){x.fillStyle=DC.shade('#e8f3fb',.96+r()*.05);x.fillRect(k,j,1,1);}x.fillStyle='#bfd6ea';x.fillRect(7,0,2,16);}),true);ice.wrapS=ice.wrapT=THREE.RepeatWrapping;
+  const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({map:ice}));m.receiveShadow=true;scene.add(m);
+  // 양쪽 벽
+  [-1,1].forEach(s=>{for(let z=-20;z<=LEN+40;z+=3){const p=at(z),p2=at(z+3);const nx=1,nz=-p.dx,l=Math.hypot(nx,nz);
+    const x1=p.x+s*nx/l*W/2,z1=z+s*nz/l*W/2,x2=p2.x+s*nx/l*W/2,z2=z+3+s*nz/l*W/2;
+    const seg=new THREE.Mesh(new THREE.BoxGeometry(.5,1.6,Math.hypot(x2-x1,z2-z1)+.2),DC.solid(s<0?'#cfe0f0':'#c4d7ea'));seg.position.set((x1+x2)/2,p.y+.8,(z1+z2)/2);seg.rotation.y=-Math.atan2(z2-z1,x2-x1)+Math.PI/2;seg.castShadow=true;scene.add(seg);}});
+}
+ribbonTrack();
+// 눈 덮인 지형·나무
+const snow=new THREE.Mesh(new THREE.PlaneGeometry(700,900),new THREE.MeshLambertMaterial({color:'#f2f7fc'}));snow.rotation.x=-Math.PI/2;snow.position.set(0,cy(LEN)-1.5,LEN/2);scene.add(snow);
+{const r=DC.seeded(77),pine=[DC.solid('#2f6b43'),DC.solid('#3a7d4f'),DC.solid('#285e3b')],trunk=DC.solid('#6b4a2e');
+  for(let i=0;i<160;i++){const z=-20+r()*(LEN+60),p=at(z),side=r()<.5?-1:1,x=p.x+side*(10+r()*30),y=cy(z)-1.5+Math.max(0,(Math.abs(x-p.x)-10)*.05),s=1.6+r()*1.6;
+    DC.box(.5,1.2,.5,trunk,x,y+.6,z,scene);for(let k=0;k<3;k++){const w=s*(1-k*.28);DC.box(w,w*.7,w,pine[(i+k)%3],x,y+1.2+k*w*.6+w*.35,z,scene);}}}
+// 출발·결승 아치, 구간 표시
+const arch=(z,txt,c)=>{const p=at(z);[-1,1].forEach(s=>DC.box(.4,4,.4,DC.solid('#5d6f8f'),p.x+s*(W/2+.3),p.y+2,z,scene));
+  const b=new THREE.Mesh(new THREE.PlaneGeometry(W+1,1),new THREE.MeshBasicMaterial({map:DC.textTex(txt,512,48,c,'#ffffff','bold 36px "Black Han Sans",sans-serif'),side:THREE.DoubleSide}));b.position.set(p.x,p.y+4.2,z);b.rotation.y=Math.PI;scene.add(b);};
+arch(0,'START','#2f5bd6');arch(LEN,'FINISH','#ff3b3b');
+[.25,.5,.75].forEach((f,i)=>{const z=LEN*f,p=at(z);const b=new THREE.Mesh(new THREE.PlaneGeometry(W,.3),new THREE.MeshBasicMaterial({color:'#3a7bff'}));b.rotation.x=-Math.PI/2;b.position.set(p.x,p.y+.03,z);scene.add(b);});
+/* ---------- 썰매 + 엎드린 선수 ---------- */
+function makeSlider(k,accent,bib){
+  const root=new THREE.Group();const body=new THREE.Group();root.add(body);
+  DC.box(.5,.06,1.0,DC.solid('#2a2f3a'),0,.12,0,body);[-.2,.2].forEach(x=>DC.box(.04,.08,1.1,DC.solid('#a9b4c9'),x,.06,0,body));
+  DC.box(.6,.12,.2,DC.solid('#1f2a44'),0,.18,-.42,body);
+  const suit=DC.LM(DC.ctex(DC.noiseCanvas(accent,7,8,8,.06),true)),fur=DC.LM(DC.ctex(DC.noiseCanvas(DC.FACES[k].pal.B,3,4,4,.06),true));
+  const torso=DC.box(.42,.22,.62,suit,0,.28,.05,body);
+  [-.11,.11].forEach(x=>{DC.box(.15,.14,.7,suit,x,.26,.68,body);DC.box(.17,.1,.22,DC.solid('#20262e'),x,.27,1.08,body);});
+  [-.3,.3].forEach(x=>{DC.box(.12,.12,.55,suit,x,.26,-.2,body);DC.box(.11,.11,.11,fur,x,.26,-.52,body);});
+  const head=DC.makeHead(k);head.position.set(0,.42,-.42);head.rotation.x=.35;body.add(head);
+  const helmet=DC.box(.46,.14,.46,DC.solid(accent),0,.66,-.42,body);
+  const b=new THREE.Mesh(new THREE.PlaneGeometry(.3,.2),new THREE.MeshBasicMaterial({map:DC.textTex(bib,64,48,'#ffffff','#20304f','bold 34px "Share Tech Mono",monospace')}));b.position.set(0,.4,.05);b.rotation.x=-Math.PI/2;body.add(b);
+  const sh=new THREE.Mesh(new THREE.PlaneGeometry(.9,1.8),new THREE.MeshBasicMaterial({color:'#4a6a8a',transparent:true,opacity:.3,depthWrite:false}));sh.rotation.x=-Math.PI/2;sh.position.y=.02;root.add(sh);
+  return {root,body,head};
+}
+const PL={rabbit:{k:'rabbit',name:'토끼팀',lane:-2.7,bib:'1'},cat:{k:'cat',name:'고양이팀',lane:2.7,bib:'2'}};
+Object.values(PL).forEach(p=>{p.m=makeSlider(p.k,DC.COLORS[p.k],p.bib);scene.add(p.m.root);p.z=-6;p.prog=0;});
+function place(p,z,wob){const a=at(z),nx=1,nz=-a.dx,l=Math.hypot(nx,nz);const lane=p.lane+wob;p.m.root.position.set(a.x+nx/l*lane,a.y+.02,z+nz/l*lane);p.m.root.rotation.y=-Math.atan2(a.dx,1);p.m.root.rotation.x=slope()*.9;}
+Object.values(PL).forEach(p=>place(p,p.z,0));
+
+/* ---------- 경기 ---------- */
+const B=DC.banner($('banner'));let busy=false,play=null,t0=0;
+const REAL=8.0; // 이긴 팀이 결승까지 걸리는 실제 화면 시간(초)
+function setNames(a,b){if(a)PL.rabbit.name=String(a).slice(0,12);if(b)PL.cat.name=String(b).slice(0,12);
+  $('h-rabbit').textContent=PL.rabbit.name;$('h-cat').textContent=PL.cat.name;$('hr-n').textContent=PL.rabbit.name;$('hc-n').textContent=PL.cat.name;}
+function hud(p,time,speed){const id=p.k==='rabbit'?'hr':'hc';$(id+'-t').textContent=time.toFixed(2);$(id+'-s').textContent=`${speed.toFixed(0)} km/h`;}
+/** m = { scores, winner, result:{rabbit:{value:초,fail},cat:{...}}, questions } */
+function playResult(m){
+  if(busy)return false;busy=true;
+  const r=m.result||{rabbit:{value:57},cat:{value:57}};
+  const tr=+r.rabbit.value||57,tc=+r.cat.value||57,best=Math.min(tr,tc);
+  play={winner:m.winner||'draw',scores:m.scores||{rabbit:0,cat:0},questions:m.questions||[],t:{rabbit:tr,cat:tc},dur:{rabbit:REAL*tr/best,cat:REAL*tc/best},fail:{rabbit:!!r.rabbit.fail,cat:!!r.cat.fail},done:{rabbit:false,cat:false},phase:'ready'};
+  Object.values(PL).forEach(p=>{p.z=-6;p.prog=0;place(p,p.z,0);hud(p,0,0);});
+  B.show(`${play.questions.length||3}문항 합산`,`${PL.rabbit.name} ${(+play.scores.rabbit).toFixed(1)} : ${(+play.scores.cat).toFixed(1)} ${PL.cat.name}`);
+  $('status').textContent='출발 준비';
+  setTimeout(()=>{t0=performance.now();play.phase='run';$('status').textContent='주행 중';},1700);return true;
+}
+function step(ms){
+  if(!play||play.phase!=='run'&&play.phase!=='end')return;
+  const el=(ms-t0)/1000;
+  Object.values(PL).forEach(p=>{
+    const d=play.dur[p.k],u=DC.clamp(el/d,0,1);
+    const s=Math.pow(u,1.25); // 출발 푸시는 느리고 점점 빨라짐
+    const z=-6+(LEN+6)*s;
+    const spd=(u<=0?0:(Math.pow(Math.min(1,u+.01),1.25)-Math.pow(u,1.25))/.01*(LEN+6)/d)*3.6*(1250/LEN)*.35; // 보기용 km/h
+    const fail=play.fail[p.k]&&!REDUCED;
+    const wob=fail?Math.sin(el*5.5+p.lane)*1.3*(u<1?1:0):(REDUCED?0:Math.sin(el*2.2+p.lane)*.15);
+    place(p,z,wob);
+    if(fail){p.m.body.rotation.z=Math.sin(el*5.5+p.lane)*.25;if(Math.abs(wob)>1.2&&!p.hitT){p.hitT=ms;spark(p);}if(p.hitT&&ms-p.hitT>400)p.hitT=0;}
+    else p.m.body.rotation.z=(REDUCED?0:Math.sin(el*2.2+p.lane)*.05);
+    const shown=Math.min(play.t[p.k],u*play.t[p.k]);hud(p,shown,u<1?spd:0);
+    if(u>=1&&!play.done[p.k]){play.done[p.k]=true;hud(p,play.t[p.k],0);}
+  });
+  if(play.phase==='run'&&play.done.rabbit&&play.done.cat){play.phase='end';
+    const w=play.winner,wn=w==='draw'?null:PL[w];
+    B.show(wn?`${wn.name} 승리!`:'무승부!',`${PL.rabbit.name} ${play.t.rabbit.toFixed(2)}초 : ${play.t.cat.toFixed(2)}초 ${PL.cat.name}`,true);
+    $('status').textContent=wn?`${wn.name} 승리`:'무승부';
+    setTimeout(()=>{bridge.emit('done',{index:1,times:play.t,winner:play.winner});busy=false;if(auto)setTimeout(demo,4000);},1800);}
+}
+const sparks=[];
+function spark(p){const g=new THREE.Group();g.position.copy(p.m.root.position);scene.add(g);for(let i=0;i<8;i++){const s=DC.box(.08,.08,.08,new THREE.MeshBasicMaterial({color:'#ffffff'}),0,.4,0,g);s.v=V((Math.random()-.5)*4,Math.random()*3,(Math.random()-.5)*4);}sparks.push({g,t:0});}
+function reset(){play=null;busy=false;B.hide();Object.values(PL).forEach(p=>{p.z=-6;place(p,p.z,0);hud(p,0,0);p.m.body.rotation.z=0;});$('status').textContent='대결 준비';}
+function demo(){const a=Math.round(Math.random()*450),b=Math.round(Math.random()*450),w=a===b?'draw':a>b?'rabbit':'cat';const Sw=Math.max(a,b),d=Math.abs(a-b)/450,tw=Math.round((58.5-3*(Sw/450))*100)/100,tl=w==='draw'?tw:Math.round((tw+.1+1.5*d)*100)/100;
+  playResult({scores:{rabbit:a,cat:b},winner:w,result:{rabbit:{value:w==='cat'?tl:tw,fail:a===0},cat:{value:w==='rabbit'?tl:tw,fail:b===0}},questions:[7,8,9]});}
+/* ---------- 카메라·루프 ---------- */
+function resize(){const w=range.clientWidth,h=range.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+new ResizeObserver(resize).observe(range);resize();
+let last=performance.now();const camPos=V(0,8,-22),camLook=V(0,0,10);
+function loop(ms){const dt=Math.min(.05,(ms-last)/1000);last=ms;step(ms);
+  for(let i=sparks.length-1;i>=0;i--){const s=sparks[i];s.t+=dt;s.g.children.forEach(c=>{c.position.addScaledVector(c.v,dt);c.v.y-=9*dt;});if(s.t>.6){scene.remove(s.g);sparks.splice(i,1);}}
+  const lead=Math.max(PL.rabbit.m.root.position.z,PL.cat.m.root.position.z),zl=DC.clamp(lead,-6,LEN),a=at(zl),a2=at(DC.clamp(zl-9,-26,LEN)),a3=at(DC.clamp(zl+10,0,LEN+20));
+  const want=V(a2.x,a2.y+6,zl-9),look=V(a3.x,a.y+.5,zl+10);
+  const k=1-Math.pow(.02,dt);camPos.lerp(want,k);camLook.lerp(look,k);camera.position.copy(camPos);camera.lookAt(camLook);
+  renderer.render(scene,camera);requestAnimationFrame(loop);}
+const bridge=DC.bridge('skeletonDuel',{playResult,names:m=>setNames(m.names&&m.names[0],m.names&&m.names[1]),eventSummary:m=>B.show(m.title||'',m.text||'',true),reset,run:m=>demo()});
+$('next').onclick=()=>{if(!busy)demo();};$('reset').onclick=reset;
+if(APP||new URLSearchParams(location.search).get('ui')==='min')document.documentElement.classList.add('ui-min');
+if(names.length)setNames(names[0],names[1]);
+requestAnimationFrame(loop);
+if(auto)setTimeout(demo,1200);
+bridge.emit('ready',{});
+</script>
+</body>
+</html>

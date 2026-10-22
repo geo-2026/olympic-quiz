@@ -1,0 +1,61 @@
+/* 학생 화면 : 세로 휴대폰(360px~), 버튼 최소 높이 56px (명세서 3.2·3.3) */
+body{min-height:100vh;display:flex;flex-direction:column;background:var(--bg);transition:background .4s}
+body.team-rabbit{background:#2b1620} body.team-cat{background:#2b1d10}
+#top{display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(0,0,0,.35);position:sticky;top:0;z-index:3}
+#top .ttl{font-family:var(--display);font-size:1.1rem;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#top .me{font-size:.85rem;display:flex;align-items:center;gap:6px}
+#top .btn.sm{min-height:36px;padding:4px 10px}
+#net{font-size:.75rem;padding:2px 8px;border-radius:999px;background:#444}
+#net.open{background:#1f6b45} #net.bad{background:#7a2323}
+#main{flex:1;padding:16px 16px 28px;display:flex;flex-direction:column;gap:14px;max-width:560px;width:100%;margin:0 auto;position:relative}
+.view{display:flex;flex-direction:column;gap:14px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:.9rem;color:var(--muted)}
+.field input{background:#0b1424;color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:14px;font-size:1.2rem;min-height:56px}
+.field input:focus{outline:2px solid var(--led)}
+.btn.big{min-height:60px;font-size:1.2rem;width:100%}
+.err{color:var(--no);font-weight:700}
+.hero{text-align:center;padding:20px 10px}
+.hero h2{font-size:2rem;margin-bottom:8px}
+.hero .faces img{margin:0 4px}
+.qhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.qhead .no{font-family:var(--display);font-size:1.6rem;color:var(--led)}
+.qhead .sport{font-family:var(--mono);color:var(--cyan)}
+.qtext{font-size:1.25rem;font-weight:600;line-height:1.45;white-space:pre-wrap;word-break:keep-all}
+.qimg{max-width:100%;border-radius:10px}
+.answers{display:flex;flex-direction:column;gap:10px}
+.answers.ox{flex-direction:row}
+.abtn{min-height:56px;border-radius:14px;border:2px solid var(--line);background:var(--panel);color:var(--fg);font-size:1.15rem;text-align:left;padding:12px 16px;display:flex;gap:10px;align-items:center;word-break:keep-all}
+.abtn .n{font-family:var(--mono);color:var(--led)}
+.ox .abtn{flex:1;justify-content:center;font-family:var(--display);font-size:3.4rem;min-height:120px}
+.abtn.sel{border-color:var(--led);background:rgba(255,210,61,.18)}
+.abtn:disabled{opacity:.55}
+.hint{font-family:var(--mono);font-size:1.5rem;color:var(--cyan);background:var(--panel);border-radius:12px;padding:10px 14px;text-align:center}
+.hint small{display:block;font-size:.8rem;color:var(--muted)}
+.shortrow{display:flex;gap:8px}
+.shortrow input{flex:1;background:#0b1424;color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:12px;font-size:1.2rem;min-height:56px;min-width:0}
+.locked{background:var(--panel);border:2px solid var(--ok);border-radius:14px;padding:16px;text-align:center;font-size:1.2rem}
+.locked b{display:block;font-family:var(--display);font-size:1.8rem;color:var(--ok)}
+.result{background:var(--panel);border-radius:14px;padding:16px;text-align:center}
+.result .mark{font-family:var(--display);font-size:4rem;line-height:1}
+.result .mark.ok{color:var(--ok)} .result .mark.no{color:var(--no)}
+.result .score{font-family:var(--mono);font-size:1.6rem;color:var(--led)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:1rem;text-align:left}
+.kv dt{color:var(--muted)} .kv dd{margin:0}
+.winline{font-family:var(--display);font-size:1.5rem;text-align:center}
+.bundle{background:var(--panel);border-radius:12px;padding:10px 12px}
+.bundle .lab{display:flex;justify-content:space-between;font-family:var(--mono);margin-bottom:6px}
+.teams2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.teams2 .t{border-radius:12px;padding:10px;text-align:center;border:2px solid var(--line)}
+.teams2 .t.rabbit{border-color:var(--rabbit)} .teams2 .t.cat{border-color:var(--cat)}
+.teams2 .t.win{box-shadow:0 0 0 3px rgba(255,210,61,.6)}
+.teams2 .t b{display:block;font-family:var(--mono);font-size:1.5rem;color:var(--led)}
+.diffline{font-family:var(--display);font-size:1.3rem;text-align:center}
+.medals{display:flex;justify-content:space-around;font-size:1.6rem}
+table.s{width:100%;border-collapse:collapse;font-size:.9rem}
+table.s th,table.s td{border-bottom:1px solid var(--line);padding:6px 4px;text-align:center}
+table.s td:first-child{text-align:left}
+.scene{text-align:center;padding:10px}
+.scene .big{font-family:var(--display);font-size:1.8rem}
+.overlay{position:fixed;inset:0;background:rgba(5,10,20,.85);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;padding:24px;text-align:center;z-index:40}
+.overlay[hidden]{display:none}
