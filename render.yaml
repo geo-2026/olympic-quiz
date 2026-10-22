@@ -1,0 +1,16 @@
+# Render Blueprint — 통합사회 올림픽 형성평가 (sl-game2와 같은 방식)
+# https://render.com → New → Blueprint → GitHub 저장소 geo-2026/olympic-quiz 선택 → Apply
+# 배포가 끝나면 https://olympic-quiz.onrender.com (이름이 이미 쓰이면 뒤에 무작위 문자가 붙음)
+#   교사 : /admin.html   학생 : /play.html   상태 확인 : /healthz
+services:
+  - type: web
+    name: olympic-quiz
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    autoDeploy: true
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0

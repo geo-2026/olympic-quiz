@@ -1,11 +1,20 @@
 {
   "name": "olympic-quiz",
   "version": "1.0.0",
-  "description": "통합사회 올림픽 형성평가 게임 — 교사 브라우저가 호스트가 되는 정적 웹앱 (GitHub Pages)",
+  "description": "통합사회 올림픽 형성평가 게임 — Express + Socket.IO 중계 서버(Render 고정 주소) / GitHub Pages(PeerJS) 겸용",
   "type": "module",
   "private": true,
   "scripts": {
+    "start": "node server.js",
     "test": "node --test tests/*.test.js",
     "serve": "python -m http.server 8766 --bind 127.0.0.1"
+  },
+  "dependencies": {
+    "express": "^4.22.3",
+    "socket.io": "^4.8.4"
+  },
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
   }
 }

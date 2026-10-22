@@ -63,7 +63,7 @@
       <div class="row"><button class="btn sm" id="btnSaveSettings">설정 저장</button></div>
       <h3>통신 방식</h3>
       <div class="small muted" id="transportInfo"></div>
-      <div class="row"><a class="btn sm" id="btnLocalMode" href="admin.html?net=local">같은 기기 시연 모드</a></div>
+      <div class="row"><a class="btn sm" href="admin.html">서버 중계(기본)</a><a class="btn sm" id="btnPeerMode" href="admin.html?net=peer">PeerJS 직접 연결</a><a class="btn sm" id="btnLocalMode" href="admin.html?net=local">같은 기기 시연 모드</a></div>
     </section>
   </aside>
   <main id="stagewrap"><div id="stage" class="fxroot"></div><div class="countdown" id="countdown"></div></main>
@@ -82,6 +82,7 @@
 </div>
 <div class="modal" id="modal" hidden><div class="box" id="modalBox"></div></div>
 <div class="toast" id="toast"></div>
+<script src="lib/socket.io.min.js"></script>
 <script src="lib/peerjs.min.js"></script>
 <script src="lib/xlsx.full.min.js"></script>
 <script src="lib/qrcode.min.js"></script>

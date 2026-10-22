@@ -2,7 +2,8 @@
 const puppeteer = require('puppeteer-core');
 const fs = require('fs'); const path = require('path');
 const BASE = process.argv[2] || 'http://127.0.0.1:8766/';
-const FULL_SCENES = process.argv.includes('--scenes');   // 모든 장면을 끝까지 재생(느림). 기본은 첫 장면만 재생하고 나머지는 건너뜀
+const FULL_SCENES = process.argv.includes('--scenes');
+const NET = ((process.argv.find(a => a.startsWith('--net=')) || '--net=local').slice(6));   // local(기본, BroadcastChannel) | socket(server.js 중계 — BASE가 node 서버여야 함)   // 모든 장면을 끝까지 재생(느림). 기본은 첫 장면만 재생하고 나머지는 건너뜀
 const DL = path.join(__dirname, 'dl'); fs.rmSync(DL, { recursive: true, force: true }); fs.mkdirSync(DL);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fails = 0; const errors = [];
@@ -17,9 +18,9 @@ const waitFor = async (page, fn, arg, timeout = 15000) => { try { await page.wai
   const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true, args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', '--disable-features=IntensiveWakeUpThrottling'] });
   admin = await browser.newPage(); await admin.setViewport({ width: 1600, height: 900 }); hook(admin, 'admin');
   const cdp = await admin.createCDPSession(); await cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: DL, eventsEnabled: true });
-  await admin.goto(BASE + 'admin.html?net=local', { waitUntil: 'networkidle0' });
+  await admin.goto(BASE + `admin.html?net=${NET}`, { waitUntil: 'networkidle0' });
   await admin.evaluate(() => { localStorage.clear(); });
-  await admin.goto(BASE + 'admin.html?net=local', { waitUntil: 'networkidle0' });
+  await admin.goto(BASE + `admin.html?net=${NET}`, { waitUntil: 'networkidle0' });
   ok(await waitFor(admin, () => /^\d{4}$/.test(document.getElementById('roomCode').textContent)), '관리자 : 방 코드 생성');
   const code = await admin.$eval('#roomCode', e => e.textContent);
   ok(await waitFor(admin, () => document.getElementById('net').className === 'open'), '관리자 : 호스트 연결(open) · 코드 ' + code);
@@ -47,7 +48,7 @@ const waitFor = async (page, fn, arg, timeout = 15000) => { try { await page.wai
   const names = [['10201', '김토끼'], ['10202', '이고양'], ['10203', '박지리']];
   for (const [no, name] of names) {
     const p = await browser.newPage(); await p.setViewport({ width: 390, height: 780, isMobile: true, hasTouch: true }); hook(p, name);
-    await p.goto(BASE + `play.html?net=local&room=${code}`, { waitUntil: 'networkidle0' });
+    await p.goto(BASE + `play.html?net=${NET}&room=${code}`, { waitUntil: 'networkidle0' });
     await p.$eval('#inNo', (e, v) => { e.value = v; }, no); await p.$eval('#inName', (e, v) => { e.value = v; }, name); await p.click('#btnJoin');
     const joined = await waitFor(p, () => window.OLQS && OLQS.me && OLQS.view && OLQS.view.phase === 'LOBBY');
     const me = joined ? await p.evaluate(() => OLQS.me) : null;
@@ -60,7 +61,7 @@ const waitFor = async (page, fn, arg, timeout = 15000) => { try { await page.wai
   const s0 = students[0]; await s0.p.reload({ waitUntil: 'networkidle0' });
   ok(await waitFor(s0.p, t => OLQS.me && OLQS.me.team === t, s0.team), `학생 ${s0.name} 새로 고침 → 자동 재입장, 같은 팀(${s0.team})`);
   // 잘못된 학번
-  { const p = await browser.newPage(); hook(p, 'bad'); await p.goto(BASE + `play.html?net=local&room=${code}`, { waitUntil: 'networkidle0' }); await p.$eval('#inNo', e => { e.value = '1234'; }); await p.$eval('#inName', e => { e.value = '오류학생'; }); await p.click('#btnJoin');
+  { const p = await browser.newPage(); hook(p, 'bad'); await p.goto(BASE + `play.html?net=${NET}&room=${code}`, { waitUntil: 'networkidle0' }); await p.$eval('#inNo', e => { e.value = '1234'; }); await p.$eval('#inName', e => { e.value = '오류학생'; }); await p.click('#btnJoin');
     const err = await waitFor(p, () => document.querySelector('.err') && document.querySelector('.err').textContent.includes('5자리')); ok(err, '학번 4자리 입장 거부(5자리 설정)'); await p.close(); }
 
   // 게임 시작
@@ -153,7 +154,7 @@ const waitFor = async (page, fn, arg, timeout = 15000) => { try { await page.wai
   const code2 = await admin.$eval('#roomCode', e => e.textContent);
   await waitFor(admin, () => document.getElementById('net').className === 'open');
   await admin.evaluate(() => OLQ.loadSample()); await sleep(200);
-  const p2 = await browser.newPage(); hook(p2, 'resume'); await p2.goto(BASE + `play.html?net=local&room=${code2}`, { waitUntil: 'networkidle0' }); await p2.$eval('#inNo', e => { e.value = '10301'; }); await p2.$eval('#inName', e => { e.value = '복구학생'; }); await p2.click('#btnJoin');
+  const p2 = await browser.newPage(); hook(p2, 'resume'); await p2.goto(BASE + `play.html?net=${NET}&room=${code2}`, { waitUntil: 'networkidle0' }); await p2.$eval('#inNo', e => { e.value = '10301'; }); await p2.$eval('#inName', e => { e.value = '복구학생'; }); await p2.click('#btnJoin');
   ok(await waitFor(p2, () => OLQS.me && OLQS.view.phase === 'LOBBY'), '새 방 학생 입장');
   await aclick('#cStart'); await sleep(200); await aclick('#cOpen'); await sleep(300);
   await admin.reload({ waitUntil: 'networkidle0' });

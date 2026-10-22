@@ -1,6 +1,6 @@
 /* 관리자(교사) 화면 — 이 브라우저가 호스트(서버 역할). 게임 상태는 core/game.js, 통신은 net.js */
 import { Game } from './core/game.js';
-import { HostNet, detectTransport } from './net.js';
+import { HostNet, detectTransport, relayUrl, TRANSPORT_NAME } from './net.js';
 import { GameAudio } from './audio.js';
 import { Timer } from './timer.js';
 import { faceImg } from './faces.js';
@@ -13,7 +13,7 @@ import { TEAMS, GRACE_MS, round1 } from './core/scoring.js';
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt1 = v => (v == null ? '—' : Number(v).toFixed(1));
-const transport = detectTransport();
+let transport = detectTransport();   // 'socket'(서버 중계) → 실패하면 'peer'로 자동 전환, ?net=local 은 같은 기기 시연
 const audio = new GameAudio();
 let game = null, net = null, timer = null, closeTimer = null, pending = null, broadcastT = null, persistT = null;
 const scene = { sport: null, type: null, ready: false, waiting: null, fallback: null, hard: null };
@@ -43,26 +43,41 @@ function resume(snap) {
   Object.values(game.state.students).forEach(st => { st.connected = false; st.clientId = null; });
   startHost();
 }
+function hostKey(code) { const k = 'olq:host:key:' + code; let v = localStorage.getItem(k); if (!v) { v = Math.random().toString(36).slice(2, 12); localStorage.setItem(k, v); } return v; }
+function makeNet(tr) {
+  const n = new HostNet({ code: game.code, transport: tr, key: hostKey(game.code) });
+  n.on('status', s => { if (n === net) setNet(s); }).on('connect', () => { }).on('disconnect', id => { if (game.disconnect(id)) refresh(); })
+    .on('message', onMessage).on('error', err => { if (n !== net) return; if (err.type === 'unavailable-id') { toast('이 방 코드는 다른 곳에서 쓰고 있어요. 새 코드로 다시 만듭니다.'); setTimeout(newRoom, 800); } else if (err.type === 'network' || err.type === 'server-error') setNet('bad'); });
+  return n;
+}
 async function startHost() {
   if (net) net.stop();
   $('roomCode').textContent = game.code; localStorage.setItem('olq:host:last', game.code);
-  net = new HostNet({ code: game.code, transport });
-  net.on('status', s => setNet(s)).on('connect', () => { }).on('disconnect', id => { if (game.disconnect(id)) refresh(); })
-    .on('message', onMessage).on('error', err => { if (err.type === 'unavailable-id') { toast('이 방 코드는 다른 곳에서 쓰고 있어요. 새 코드로 다시 만듭니다.'); setTimeout(newRoom, 800); } else if (err.type === 'network' || err.type === 'server-error') setNet('bad'); });
+  if (transport === 'socket' && !relayUrl()) transport = 'peer';
+  net = makeNet(transport);
   setNet('connecting');
-  try { await net.start(); } catch (e) { setNet('bad'); }
+  try { await net.start(); }
+  catch (e) {
+    if (transport === 'socket' && e && e.type === 'relay-unavailable') {   // 서버가 잠들었거나 없음 → PeerJS 직접 연결로 전환
+      transport = 'peer'; toast('중계 서버에 연결하지 못해 PeerJS 직접 연결로 전환합니다.');
+      net = makeNet('peer'); setNet('connecting');
+      try { await net.start(); } catch (e2) { setNet('bad'); }
+    } else if (!(e && e.type === 'unavailable-id')) setNet('bad');
+  }
   applySettingsToUI(); refresh(); renderQuestionsTab(); renderQR();
 }
 function setNet(s) {
   const el = $('net');
   el.className = s === 'open' ? 'open' : s === 'bad' ? 'bad' : '';
-  el.textContent = s === 'open' ? (transport === 'local' ? '같은 기기 모드' : '온라인 · 학생 접속 가능') : s === 'bad' ? '연결 실패 — 인터넷을 확인하세요' : s === 'reconnecting' ? '다시 연결 중…' : '연결 중…';
+  el.textContent = s === 'open' ? (transport === 'local' ? '같은 기기 모드' : `온라인 · 학생 접속 가능 (${TRANSPORT_NAME[transport]})`) : s === 'bad' ? '연결 실패 — 인터넷을 확인하세요' : s === 'reconnecting' ? '다시 연결 중…' : '연결 중…';
 }
-function joinUrl() { const u = new URL('play.html', location.href); u.searchParams.set('room', game.code); if (transport === 'local') u.searchParams.set('net', 'local'); return u.href; }
+function joinUrl() { const u = new URL('play.html', location.href); u.searchParams.set('room', game.code); if (transport !== 'socket') u.searchParams.set('net', transport); return u.href; }
 function renderQR() {
   const url = joinUrl(); $('joinUrl').textContent = url;
   $('qr').innerHTML = ''; try { new QRCode($('qr'), { text: url, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M }); } catch (e) { }
-  $('transportInfo').textContent = transport === 'local' ? '같은 기기 시연 모드 : 이 브라우저의 다른 탭에서만 학생 화면이 연결됩니다.' : '온라인 모드 : PeerJS(WebRTC)로 학생 기기와 직접 연결합니다. 같은 와이파이가 아니어도 되지만 학교 네트워크가 WebRTC를 막으면 연결되지 않을 수 있어요.';
+  $('transportInfo').textContent = transport === 'local' ? '같은 기기 시연 모드 : 이 브라우저의 다른 탭에서만 학생 화면이 연결됩니다.'
+    : transport === 'socket' ? `서버 중계 모드 : ${relayUrl()} 의 Socket.IO 서버가 교사 화면과 학생 기기 사이의 메시지를 전달합니다. 일반 웹 접속만 되면 어느 네트워크에서나 연결됩니다.`
+      : 'PeerJS 직접 연결 모드 : WebRTC로 학생 기기와 직접 연결합니다. 같은 와이파이가 아니어도 되지만 학교 네트워크가 WebRTC를 막으면 연결되지 않을 수 있어요.';
 }
 
 /* ───────── 학생 메시지 ───────── */
