@@ -49,7 +49,7 @@ olympic-quiz/
 ├─ scenes/   lib/(three.min.js r128, duel-common.js, duel.css) tug/ skijump/ skeleton/ longjump/ archery/ pistol/
 ├─ questions/  예시 문항 엑셀
 ├─ tests/    *.test.js           # npm test
-├─ tools/    e2e-test.js README.md  # 헤드리스 Chrome 통합 검증
+├─ tools/    e2e-test.cjs README.md  # 헤드리스 Chrome 통합 검증
 └─ docs/SPEC.md
 ```
 
@@ -63,5 +63,5 @@ olympic-quiz/
 ```
 npm test                                   # 단위 테스트 22개 (채점·종목·기록·엑셀 변환·상태 전이)
 python -m http.server 8766 --bind 127.0.0.1
-node tools/e2e-test.js http://127.0.0.1:8766/      # 관리자 1 + 학생 3 통합 (puppeteer-core 필요, tools/README.md)
+cd tools ; node e2e-test.cjs http://127.0.0.1:8766/   # 관리자 1 + 학생 3 통합 (puppeteer-core 필요, NODE_PATH 설정은 tools/README.md)
 ```

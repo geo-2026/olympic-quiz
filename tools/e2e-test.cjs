@@ -11,13 +11,12 @@ const hook = (p, tag) => { p.on('console', m => { if (m.type() === 'error' && !/
 // 배경 탭이 되면 헤드리스 크롬이 프레임을 멈춰 click 이 끝나지 않으므로 관리자 탭을 앞으로 가져온 뒤 누름
 let admin;
 const aclick = async sel => { await admin.bringToFront(); await admin.click(sel); };
-const waitFor = async (page, fn, arg, timeout = 15000) => { try { await page.waitForFunction(fn, { timeout }, arg); return true; } catch (e) { return false; } };
+const waitFor = async (page, fn, arg, timeout = 15000) => { try { await page.waitForFunction(fn, { timeout, polling: 100 }, arg); return true; } catch (e) { return false; } };
 
 (async () => {
-  const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true, args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
+  const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true, args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', '--disable-features=IntensiveWakeUpThrottling'] });
   admin = await browser.newPage(); await admin.setViewport({ width: 1600, height: 900 }); hook(admin, 'admin');
   const cdp = await admin.createCDPSession(); await cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: DL, eventsEnabled: true });
-  await admin.evaluateOnNewDocument(() => { try { localStorage.clear(); } catch (e) { } });
   await admin.goto(BASE + 'admin.html?net=local', { waitUntil: 'networkidle0' });
   await admin.evaluate(() => { localStorage.clear(); });
   await admin.goto(BASE + 'admin.html?net=local', { waitUntil: 'networkidle0' });
@@ -142,7 +141,7 @@ const waitFor = async (page, fn, arg, timeout = 15000) => { try { await page.wai
   for (let i = 0; i < 20; i++) { await sleep(500); if (fs.readdirSync(DL).some(x => x.endsWith('.xlsx'))) break; }
   const xl = fs.readdirSync(DL).filter(x => x.endsWith('.xlsx'));
   ok(xl.length === 1 && xl[0].startsWith('형성평가결과_' + code), '결과 엑셀 내려받기 : ' + xl.join(','));
-  if (xl[0]) { const XLSX = require(path.join(__dirname, '..', 'lib', 'xlsx.full.min.js')); const wb = XLSX.readFile(path.join(DL, xl[0])); ok(wb.SheetNames.join(',') === '요약,학생별,문항별,종목별', '엑셀 시트 4개 : ' + wb.SheetNames.join(',')); const st = XLSX.utils.sheet_to_json(wb.Sheets['학생별'], { header: 1 }); ok(st.length === 4 && st[1][0] === '10201', '학생별 시트 학번 순 3명'); }
+  if (xl[0]) { const vm = require('vm'); const ctx = {}; vm.createContext(ctx); vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'lib', 'xlsx.full.min.js'), 'utf8') + ';this.__XLSX = XLSX;', ctx); const XLSX = ctx.__XLSX; const wb = XLSX.read(fs.readFileSync(path.join(DL, xl[0])), { type: 'buffer' }); ok(wb.SheetNames.join(',') === '요약,학생별,문항별,종목별', '엑셀 시트 4개 : ' + wb.SheetNames.join(',')); const st = XLSX.utils.sheet_to_json(wb.Sheets['학생별'], { header: 1 }); ok(st.length === 4 && st[1][0] === '10201', '학생별 시트 학번 순 3명'); }
   // 양식 내려받기
   await tab('questions'); await aclick('#btnTemplate'); for (let i = 0; i < 10; i++) { await sleep(400); if (fs.existsSync(path.join(DL, '문항_양식.xlsx'))) break; } ok(fs.existsSync(path.join(DL, '문항_양식.xlsx')), '엑셀 양식 내려받기');
 
