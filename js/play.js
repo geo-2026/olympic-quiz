@@ -12,7 +12,7 @@ const Q = new URLSearchParams(location.search);
 const transport = detectTransport();
 const audio = new GameAudio();
 let net = null, me = null, view = null, timer = null, saved = null, draft = { questionId: null, value: null, sent: false, locked: false };
-const played = { result: null, final: false };   // 소리를 한 번만 내기 위한 기억
+const played = { result: null, final: false, summary: null };   // 소리를 한 번만 내기 위한 기억
 const TN = t => (view && view.teamNames ? view.teamNames[t] : t === 'rabbit' ? '토끼팀' : '고양이팀');
 const face = (t, s = 40) => faceImg(t, s);
 
@@ -125,6 +125,7 @@ function sceneHtml(s, t) {   // 승패·기록은 앞 화면 경기가 끝난 �
 }
 function renderSummary(s) {
   const e = s.event, w = e.winner === 'draw' ? '무승부' : `${esc(TN(e.winner))} 승리`;
+  if (played.summary !== e.sport) { played.summary = e.sport; audio.applause(); }
   const detail = e.mode === 'bundle' ? `${e.played}문항 합산 ${fmt1(e.Tsum.rabbit)} : ${fmt1(e.Tsum.cat)}` : `${e.wins.rabbit}승 ${e.wins.cat}패`;
   $('view').innerHTML = `<div class="hero"><h2>🥇 ${sportById[e.sport].icon} ${esc(e.name)}</h2><p class="${e.winner === 'rabbit' ? 'r' : e.winner === 'cat' ? 'c' : ''}" style="font-size:1.4rem;font-weight:700">${w}</p><p class="mono">${detail}</p></div>
     <div class="teams2">${['rabbit', 'cat'].map(k => `<div class="t ${k}">${face(k, 32)}<div>${esc(TN(k))}</div><b>${fmt1(s.totals[k])}</b></div>`).join('')}</div>

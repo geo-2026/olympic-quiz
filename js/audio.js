@@ -56,8 +56,20 @@ export class GameAudio {
   reveal() { if (!this.fx('reveal')) this.tone(660, 0.3, { type: 'triangle', gain: 0.2 }); }            // 정답 공개(중립)
   drumroll() { if (!this.fx('drumroll')) this.noise(1.2, { gain: 0.25 }); }                             // 경기 시작
   cheer() { if (!this.fx('cheer')) this.noise(0.9, { gain: 0.2 }); }                                   // 경기 결과
-  applause() { if (!this.fx('applause')) this.noise(1.5, { gain: 0.15 }); }
-  victory() { if (!this.seq('victory')) this.fanfare(); this.fx('applause', .8); }                     // 최종 우승
+  applause() {
+    // 긴 박수: ZzFX의 두터운 노이즈 프리셋을 깔고, 그 위에 짧은 박수 소리를 20여 번 겹쳐 '여럿이 치는 박수'처럼 들리게 함
+    this.fx('applause');
+    if (!this.enabled || !this.ctx) return;
+    for (let i = 0; i < 22; i++) {
+      const at = Math.random() * 1.8;
+      this.noise(0.05 + Math.random() * 0.04, { gain: 0.18 + Math.random() * 0.12, at });
+    }
+  }
+  victory() {
+    if (!this.seq('victory')) this.fanfare();
+    this.applause();
+    setTimeout(() => this.applause(), 900);   // 두 번 겹쳐 더 길게
+  }
   lose() { if (!this.seq('lose')) this.tone(392, 0.5, { type: 'triangle', gain: 0.2, slide: -120 }); }
   countdown() { if (!this.fx('countdown')) this.tone(900, 0.08, { type: 'square', gain: 0.15 }); }
 }
