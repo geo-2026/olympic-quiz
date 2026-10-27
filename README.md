@@ -2,7 +2,7 @@
 
 형성평가를 팀 대항 올림픽 경기로 진행하는 교실용 웹앱입니다. 학생이 문항을 풀면 팀 점수(정답률·입력 시간)가 쌓이고, 종목마다 블록 캐릭터가 경기를 치릅니다.
 
-- **고정 주소 1 (Render 서버, 권장)** : `https://olympic-quiz.onrender.com/` — sl-game2와 같은 Express + Socket.IO 서버. 아래 「온라인 배포 (Render)」대로 한 번 연결해 두면 이 주소가 고정됩니다.
+- **고정 주소 1 (Render 서버, 권장)** : `https://olympic-quiz.onrender.com/` — sl-game2와 같은 Express + Socket.IO 서버. **2026-10-27 배포 완료**(Render 서비스 `olympic-quiz`, 싱가포르, free). `git push`만 하면 자동 재배포됩니다.
   - 교사 : `/admin.html` · 학생 : `/play.html` (관리자 화면의 QR·주소로 들어오면 방 코드가 자동 입력) · 상태 : `/healthz`
 - **고정 주소 2 (GitHub Pages, 서버 없음)** : https://geo-2026.github.io/olympic-quiz/ — 같은 파일을 정적으로 배포. 서버가 없으므로 PeerJS(WebRTC) 직접 연결로 동작합니다.
   - 교사 : https://geo-2026.github.io/olympic-quiz/admin.html · 학생 : https://geo-2026.github.io/olympic-quiz/play.html
@@ -12,6 +12,8 @@
 ## 온라인 배포 (Render) — sl-game2와 같은 방식
 
 이 저장소에는 `render.yaml`(Blueprint)과 `server.js`(Express + Socket.IO)가 들어 있습니다.
+
+**현재 상태(2026-10-27)** : Render 팀 계정 `work`에 웹 서비스 `olympic-quiz`가 이미 만들어져 있고(대시보드 <https://dashboard.render.com/web/srv-dbg0rvt9fdbs73ceakag>), `https://olympic-quiz.onrender.com` 이 살아 있습니다. 아래 1~4번은 서비스를 **새로 만들 때**만 필요합니다.
 
 1. <https://render.com> 가입/로그인 (GitHub 계정 geo-2026으로)
 2. **New → Blueprint** → GitHub 저장소 `geo-2026/olympic-quiz` 선택 → **Apply**
