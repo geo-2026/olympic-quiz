@@ -27,22 +27,30 @@ export function bundleRecord(sport, S) {
   return { sport, mode: 'bundle', winner, scores: { rabbit: a, cat: b }, result: res, finish: sport === 'tug' ? finish : undefined };
 }
 
-/** 양궁 링 : Tw ≥ 140 X(10점), 120 이상 10, 80 이상 9, 그 밖 8 */
-export function archeryRing(T) { return T >= 140 ? 'X' : T >= 120 ? '10' : T >= 80 ? '9' : '8'; }
-const ringValue = r => (r === 'X' ? 10 : Number(r));
+/** 양궁 20점 과녁 : 2문항 T 합(0~300)을 1~20점 링으로 변환(15점 간격). Tsum=300 → 20점, Tsum=0 → 1점 */
+export function archeryShotRing(Tsum) { return Math.max(1, Math.min(20, Math.ceil((Number(Tsum) || 0) / 15))); }
+/** 사격 링 : T → 소수 점수(10.0~10.9) */
+const ringValue = r => Number(r);
 
-/** 9.2 문항별 종목 : T = { rabbit, cat }, winner = 문항 승리 팀('rabbit'|'cat'|'draw') */
+/** 9.2a 양궁 발별 종목(perShot) : 2문항 T 합(0~300). 진 팀은 1점 낮게 (최소 1점) */
+export function perShotRecord(sport, Tsum, winner) {
+  if (sport !== 'archery') throw new Error('perShot은 양궁만 지원해요: ' + sport);
+  const res = {};
+  const Tw = winner === 'draw' ? Math.max(Tsum.rabbit, Tsum.cat) : Tsum[winner];
+  const wv = archeryShotRing(Tw);
+  for (const t of ['rabbit', 'cat']) {
+    const win = winner === 'draw' || t === winner;
+    const v = win ? wv : Math.max(1, wv - 1);
+    res[t] = { value: v, label: String(v), fail: Tsum[t] === 0 };
+  }
+  return { sport, mode: 'perShot', winner, scores: { rabbit: Tsum.rabbit, cat: Tsum.cat }, result: res };
+}
+
+/** 9.2 문항별 종목(사격) : T = { rabbit, cat }, winner = 문항 승리 팀('rabbit'|'cat'|'draw') */
 export function perQuestionRecord(sport, T, winner) {
   const res = {};
   const Tw = winner === 'draw' ? Math.max(T.rabbit, T.cat) : T[winner];
-  if (sport === 'archery') {
-    const ring = archeryRing(Tw), wv = ringValue(ring);
-    for (const t of ['rabbit', 'cat']) {
-      const win = winner === 'draw' || t === winner;
-      const v = win ? wv : wv - 1;
-      res[t] = { value: v, label: win ? ring : String(v), fail: T[t] === 0 };
-    }
-  } else if (sport === 'pistol') {
+  if (sport === 'pistol') {
     const wv = round1(Math.min(10.9, 10.0 + 0.006 * Tw));
     for (const t of ['rabbit', 'cat']) {
       const win = winner === 'draw' || t === winner;

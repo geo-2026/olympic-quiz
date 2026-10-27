@@ -47,11 +47,14 @@ test('상태 전이 : 묶음 종목 3문항 → 경기 1회 → 전환 → 다�
   // 4~12 빠르게
   for (let no = 4; no <= 12; no++) { playQuestion(g, clock, ids, ['O', 'X', 'O', 'O']); if (g.canPlayScene()) { g.playScene(); g.sceneDone(); } g.next(); if (g.phase === 'EVENT_SUMMARY') g.nextEvent(); }
   assert.equal(g.question.no, 13); assert.equal(g.state.eventResults.length, 4);
-  // 13 양궁 : 문항마다 경기
+  // 13~14 양궁 : 2문항=1발, 발이 끝날 때(14번) 경기
   playQuestion(g, clock, ids, ['O', 'O', 'O', 'O']);
-  assert.equal(g.canPlayScene(), true); const a = g.playScene(); assert.equal(a.mode, 'perQuestion'); assert.equal(a.index, 1); assert.equal(a.of, 2);
-  g.sceneDone(); assert.equal(g.next(), 'READY'); assert.equal(g.question.no, 14);
-  playQuestion(g, clock, ids, ['X', 'X', 'O', 'O']); g.playScene(); g.sceneDone();
+  assert.equal(g.canPlayScene(), false);   // 첫 문항은 발 중간 → 경기 불가
+  assert.equal(g.next(), 'READY'); assert.equal(g.question.no, 14);
+  playQuestion(g, clock, ids, ['X', 'X', 'O', 'O']);
+  assert.equal(g.canPlayScene(), true);
+  const a = g.playScene(); assert.equal(a.mode, 'perShot'); assert.equal(a.index, 1); assert.equal(a.of, 1); assert.deepEqual(a.questions, [13, 14]);
+  g.sceneDone();
   assert.equal(g.next(), 'EVENT_SUMMARY'); assert.equal(g.state.summary.isFinal, true);
   assert.equal(g.nextEvent(), 'FINAL');
   const f = g.state.final; assert.equal(f.played, 14); assert.equal(f.events.length, 5); assert.ok(['rabbit', 'cat', 'draw'].includes(f.winner));

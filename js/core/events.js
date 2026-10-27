@@ -6,7 +6,7 @@ export const SPORTS = [
   { id: 'skijump', name: '스키점프', mode: 'bundle', size: 3, gauge: '비행 에너지', icon: '⛷️', scene: 'skiJumpDuel', play: '3문항 합산 → 점프 1회', unit: 'm' },
   { id: 'skeleton', name: '스켈레톤', mode: 'bundle', size: 3, gauge: '스타트 파워', icon: '🛷', scene: 'skeletonDuel', play: '3문항 합산 → 주행 1회', unit: '초' },
   { id: 'longjump', name: '멀리뛰기', mode: 'bundle', size: 3, gauge: '도움닫기 스피드', icon: '🏃', scene: 'longJumpDuel', play: '3문항 합산 → 1차 시기 1회', unit: 'm' },
-  { id: 'archery', name: '양궁', mode: 'perQuestion', size: 10, icon: '🏹', scene: 'archeryDuel', play: '1문항 = 1발', unit: '점' },
+  { id: 'archery', name: '양궁', mode: 'perShot', size: 10, questionsPerShot: 2, shots: 5, icon: '🏹', scene: 'archeryDuel', play: '2문항 합산 = 1발 (총 5발)', unit: '점' },
   { id: 'pistol', name: '사격', mode: 'perQuestion', size: Infinity, icon: '🎯', scene: 'pistolDuel', play: '1문항 = 1발', unit: '점' }
 ];
 export const sportById = Object.fromEntries(SPORTS.map(s => [s.id, s]));
@@ -20,7 +20,9 @@ export function assignEvents(n) {
     const count = Math.min(s.size, n - no + 1);
     if (count <= 0) break;
     const nos = Array.from({ length: count }, (_, i) => no + i);
-    out.push({ sport: s.id, name: s.name, mode: s.mode, from: no, to: no + count - 1, nos, count, size: s.size, partialBundle: s.mode === 'bundle' && count < s.size });
+    const ev = { sport: s.id, name: s.name, mode: s.mode, from: no, to: no + count - 1, nos, count, size: s.size, partialBundle: s.mode === 'bundle' && count < s.size };
+    if (s.mode === 'perShot') { ev.questionsPerShot = s.questionsPerShot || 2; ev.shots = Math.ceil(count / ev.questionsPerShot); ev.partialShot = (count % ev.questionsPerShot) !== 0; }
+    out.push(ev);
     no += count;
   }
   return out;
@@ -31,7 +33,19 @@ export function eventOfQuestion(events, no) {
   const idx = events.findIndex(e => no >= e.from && no <= e.to);
   if (idx < 0) return null;
   const ev = events[idx];
-  return { ev, eventIndex: idx, indexInEvent: no - ev.from + 1, ofInEvent: ev.count, isLast: no === ev.to };
+  const indexInEvent = no - ev.from + 1;
+  const info = { ev, eventIndex: idx, indexInEvent, ofInEvent: ev.count, isLast: no === ev.to };
+  if (ev.mode === 'perShot') {
+    const per = ev.questionsPerShot || 2;
+    info.questionsPerShot = per;
+    info.shotIndex = Math.ceil(indexInEvent / per);
+    info.indexInShot = ((indexInEvent - 1) % per) + 1;
+    info.totalShots = Math.ceil(ev.count / per);
+    info.shotFrom = ev.from + (info.shotIndex - 1) * per;
+    info.shotTo = Math.min(ev.to, info.shotFrom + per - 1);
+    info.isShotLast = info.indexInShot === per || info.isLast;
+  }
+  return info;
 }
 
 const sumBy = (arr, f) => arr.reduce((a, x) => a + f(x), 0);
@@ -39,6 +53,7 @@ const sumBy = (arr, f) => arr.reduce((a, x) => a + f(x), 0);
 /**
  * 종목 승패. results = 정답 공개까지 끝난 QuestionResult 목록(각각 no, teams{rabbit:{T,correct,total,avgTime}}, winner)
  * 묶음 종목 : S = T 합 → 전체 정답률 → 평균 정답 시간 → 무승부. 문항별 종목 : 이긴 문항 수 → T 합 → 무승부
+ * 발별 종목(perShot, 양궁) : 문항 2개씩 묶어 발 승리 결정 → 발 승수 → T 합 → 무승부
  */
 export function eventWinner(ev, results) {
   const rs = results.filter(r => r.no >= ev.from && r.no <= ev.to).sort((a, b) => a.no - b.no);
@@ -50,6 +65,21 @@ export function eventWinner(ev, results) {
     stat[t] = { Tsum, correct, total, correctRate: total ? Math.round(correct / total * 1000) / 10 : 0, avgTime: correct ? round1(timeSum / correct) : null,
       wins: rs.filter(r => r.winner === t).length };
   }
+  let shots = null;
+  if (ev.mode === 'perShot') {
+    const per = ev.questionsPerShot || 2;
+    shots = [];
+    for (let i = 0; i < rs.length; i += per) {
+      const group = rs.slice(i, i + per);
+      if (!group.length) continue;
+      const gS = { rabbit: round1(sumBy(group, r => r.teams.rabbit.T)), cat: round1(sumBy(group, r => r.teams.cat.T)) };
+      let w = 'draw';
+      if (gS.rabbit !== gS.cat) w = gS.rabbit > gS.cat ? 'rabbit' : 'cat';
+      shots.push({ nos: group.map(g => g.no), S: gS, winner: w, full: group.length === per });
+    }
+    stat.rabbit.wins = shots.filter(s => s.winner === 'rabbit' && s.full).length;
+    stat.cat.wins = shots.filter(s => s.winner === 'cat' && s.full).length;
+  }
   const a = stat.rabbit, b = stat.cat;
   let winner = 'draw', decidedBy = '';
   if (rs.length) {
@@ -58,13 +88,13 @@ export function eventWinner(ev, results) {
       else if (a.correctRate !== b.correctRate) { winner = a.correctRate > b.correctRate ? 'rabbit' : 'cat'; decidedBy = '정답률'; }
       else { const at = a.avgTime ?? Infinity, bt = b.avgTime ?? Infinity; if (at !== bt) { winner = at < bt ? 'rabbit' : 'cat'; decidedBy = '평균 정답 시간'; } }
     } else {
-      if (a.wins !== b.wins) { winner = a.wins > b.wins ? 'rabbit' : 'cat'; decidedBy = '승수'; }
+      if (a.wins !== b.wins) { winner = a.wins > b.wins ? 'rabbit' : 'cat'; decidedBy = ev.mode === 'perShot' ? '발 승수' : '승수'; }
       else if (a.Tsum !== b.Tsum) { winner = a.Tsum > b.Tsum ? 'rabbit' : 'cat'; decidedBy = '문항 점수 합'; }
     }
   }
   const status = rs.length === 0 ? 'notPlayed' : rs.length === ev.count ? 'done' : 'partial';
   return { sport: ev.sport, name: ev.name, mode: ev.mode, from: ev.from, to: ev.to, count: ev.count, questionNos: rs.map(r => r.no), played: rs.length,
-    Tsum: { rabbit: a.Tsum, cat: b.Tsum }, wins: { rabbit: a.wins, cat: b.wins }, stats: stat, winner, decidedBy, status };
+    Tsum: { rabbit: a.Tsum, cat: b.Tsum }, wins: { rabbit: a.wins, cat: b.wins }, stats: stat, shots, winner, decidedBy, status };
 }
 
 /** 8.7 최종 합계 = 진행한 문항 T 합 + 보너스 × 이긴 종목 수. 동점 → 메달 수 → 전체 평균 정답 시간 → 무승부 */

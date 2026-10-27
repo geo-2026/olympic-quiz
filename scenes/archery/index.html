@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;600&family=Share+Tech+Mono&display=swap">
 <style>
 /* Layout: 위 3D 야외 양궁장(두 선수, 70m) → 두 선수 표적을 좌우로(흔들리는 조준점·바람) → 세트별 전광판. 페이지 틀은 어두운 경기 중계 화면, 3D 경기장은 낮 하늘
-   앱 모드(?mode=app) : 세트제 대신 1문항 = 1발, 결과는 부모 창이 playResult로 정해 줌 */
+   앱 모드(?mode=app) : 세트제 대신 2문항 합산 = 1발(총 5발), 20점 과녁(1~20점, 1점 간격), 결과는 부모 창이 playResult로 정해 줌 */
 :root{
   --bg:#0d1a1c; --panel:#142729; --line:#24413f;
   --fg:#eef5ef; --muted:#93aca6;
@@ -96,7 +96,7 @@ html.app .tcard canvas{max-width:min(100%,340px)}
 <div class="wrap">
   <header>
     <div>
-      <div class="eyebrow">Archery · Recurve 70 m · 1 vs 1</div>
+      <div class="eyebrow">Archery · 20점 과녁 · 2문항 = 1발 · 총 5발</div>
       <h1><span class="r" id="h-rabbit">토끼</span> 대 <span class="c" id="h-cat">고양이</span> 양궁 대결</h1>
     </div>
     <div class="status" id="status">대결 준비</div>
@@ -141,7 +141,7 @@ html.app .tcard canvas{max-width:min(100%,340px)}
   <section class="card board">
     <h2>세트별 전광판</h2>
     <div class="tablewrap"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
-    <p class="credit">규칙(올림픽 리커브 개인전 방식): 한 세트에 3발씩 번갈아 쏘고, 세트 합계가 높으면 세트 점수 2점, 같으면 1점씩. 먼저 6점을 얻으면 승리하고, 5세트 뒤 5:5면 한 발 슛오프로 중심에 더 가까운 쪽이 이겨요. 표적은 지름 122cm, 10점 원 지름 12.2cm, 가운데 X(6.1cm)는 10점이에요. 세트 점수가 낮은 선수가 다음 세트를 먼저 쏩니다. 화살이 날아가는 모습은 잘 보이도록 실제(약 0.3초)보다 느리게 보여줘요. 기록은 모두 시뮬레이션입니다.</p>
+    <p class="credit">규칙(이 수업용 변형): 2문항의 팀 점수 합을 1발로 바꾸고, 두 팀이 번갈아 5발씩 쏩니다(총 5발). 과녁은 20개 링으로 나뉘어 바깥 1점부터 가운데 20점까지 1점씩 올라가요. 두 문항 T 합이 높은 팀의 발이 더 안쪽 링에 꽂히고, 진 팀은 1점 낮은 바로 바깥 링에 꽂힙니다. 다섯 발이 끝나면 발 승수가 많은 팀이 양궁 종목에서 승리합니다(승수가 같으면 두 팀의 T 합으로 결정). 화살이 날아가는 모습은 실제(약 0.3초)보다 느리게 보여줘요. 기록은 모두 시뮬레이션입니다.</p>
   </section>
 </div>
 
@@ -168,19 +168,28 @@ function shade(hex,f){const n=parseInt(hex.slice(1),16);return `rgb(${Math.min(2
 function noiseCanvas(base,seed,w=8,h=8,amt=.08){const r=seeded(seed);return pxCanvas(w,h,x=>{for(let j=0;j<h;j++)for(let i=0;i<w;i++){x.fillStyle=shade(base,1-amt+r()*amt*2);x.fillRect(i,j,1,1);}});}
 ['rabbit','cat'].forEach(k=>{const src=faceCanvas(k);$('av-'+k).src=pxCanvas(64,64,x=>{x.imageSmoothingEnabled=false;x.drawImage(src,0,0,64,64);}).toDataURL();});
 
-/* ---------- 양궁 표적(지름 122cm, 링 폭 6.1cm) ---------- */
-const ZONE=['#ffffff','#ffffff','#1b1b1b','#1b1b1b','#2b8fe0','#2b8fe0','#e8382f','#e8382f','#ffd21f','#ffd21f']; // 1~10점
-function scoreOf(x,y){const d=Math.hypot(x,y);if(d<=3.05)return {v:10,x:true,d,label:'X'};const r=10-Math.floor(d/6.1);return r>=1?{v:r,x:false,d,label:String(r)}:{v:0,x:false,d,label:'M'};}
+/* ---------- 양궁 20점 표적(지름 122cm, 20개 링, 링 폭 3.05cm) ---------- */
+// ring 1 = 가장 바깥(1점), ring 20 = 한가운데(20점). 색은 흰·검·파랑·빨강·금을 4링씩 묶어 전통 배색을 유지
+const ZONE=[
+  '#ffffff','#ffffff','#ffffff','#ffffff',   // 1~4점(바깥) 흰색
+  '#1b1b1b','#1b1b1b','#1b1b1b','#1b1b1b',   // 5~8점 검정
+  '#2b8fe0','#2b8fe0','#2b8fe0','#2b8fe0',   // 9~12점 파랑
+  '#e8382f','#e8382f','#e8382f','#e8382f',   // 13~16점 빨강
+  '#ffd21f','#ffd21f','#ffd21f','#ffd21f'    // 17~20점 금(가운데)
+];
+function scoreOf(x,y){const d=Math.hypot(x,y);const r=20-Math.floor(d/3.05);return r>=1?{v:r,x:r===20,d,label:String(r)}:{v:0,x:false,d,label:'M'};}
 // 앱 모드 : 정해진 링 안의 무작위 위치(fail이면 그 링의 바깥 경계선 가까이)
-function forcedHit(f){let inner,outer;if(f.label==='X'){inner=0;outer=3.05;}else{const r=Math.max(1,Math.min(10,Number(f.label)||8));inner=(10-r)*6.1;outer=(11-r)*6.1;}
-  const d=f.fail?outer-.35:inner+.4+Math.random()*Math.max(.2,outer-inner-.8),a=Math.random()*Math.PI*2;return {x:d*Math.cos(a),y:d*Math.sin(a)};}
+function forcedHit(f){const r=Math.max(1,Math.min(20,Number(f.label)||10));const inner=(20-r)*3.05,outer=(21-r)*3.05;
+  const d=f.fail?outer-.2:inner+.2+Math.random()*Math.max(.15,outer-inner-.4),a=Math.random()*Math.PI*2;return {x:d*Math.cos(a),y:d*Math.sin(a)};}
 function drawFace(x,W,view,arrows,opt={}){
   const c=W/2,k=c/view;x.fillStyle=opt.bg||'#f7f4ea';x.fillRect(0,0,W,W);
-  for(let i=1;i<=10;i++){const r=(11-i)*6.1;x.beginPath();x.arc(c,c,r*k,0,Math.PI*2);x.fillStyle=ZONE[i-1];x.fill();
-    x.lineWidth=Math.max(1,W/420);x.strokeStyle=(i===3||i===4)?'#ffffff':'#1b1b1b';x.stroke();}
-  x.beginPath();x.arc(c,c,3.05*k,0,Math.PI*2);x.strokeStyle='#1b1b1b';x.lineWidth=Math.max(1,W/500);x.stroke();
-  if(W>=300){x.textAlign='center';x.textBaseline='middle';x.font=`${W/34}px "Share Tech Mono",monospace`;
-    for(let i=1;i<=9;i++){const rr=((11-i)*6.1-3.05)*k;if(rr>c-6)continue;x.fillStyle=(i===3||i===4)?'#fff':'#1b1b1b';x.fillText(i,c+rr,c);x.fillText(i,c-rr,c);}}
+  for(let i=1;i<=20;i++){const r=(21-i)*3.05;x.beginPath();x.arc(c,c,r*k,0,Math.PI*2);x.fillStyle=ZONE[i-1];x.fill();
+    x.lineWidth=Math.max(1,W/520);x.strokeStyle=(i>=5&&i<=8)?'#ffffff':'#1b1b1b';x.stroke();}
+  // 가운데 작은 조준점(X-ring 느낌)
+  x.beginPath();x.arc(c,c,1.0*k,0,Math.PI*2);x.strokeStyle='#1b1b1b';x.lineWidth=Math.max(1,W/500);x.stroke();
+  if(W>=300){x.textAlign='center';x.textBaseline='middle';x.font=`${W/48}px "Share Tech Mono",monospace`;
+    // 홀수 링(1,3,...,19)에만 라벨 — 20개 전부 표시하면 복잡해서 가독성이 떨어짐
+    for(let i=1;i<=19;i+=2){const rr=((21-i)*3.05-1.5)*k;if(rr>c-6||rr<4)continue;x.fillStyle=(i>=5&&i<=8)?'#fff':'#1b1b1b';x.fillText(i,c+rr,c);x.fillText(i,c-rr,c);}}
   arrows.forEach((a,i)=>{const last=i===arrows.length-1&&opt.mark!==false,px=c+a.x*k,py=c-a.y*k,r=Math.max(3,.55*k);
     x.beginPath();x.arc(px,py,r*1.9,0,Math.PI*2);x.fillStyle=opt.col||'#5fd6c8';x.fill();x.lineWidth=last?W/150:W/360;x.strokeStyle=last?'#ff3b3b':'#0d1a1c';x.stroke();
     x.beginPath();x.arc(px,py,r*.7,0,Math.PI*2);x.fillStyle='#0d1a1c';x.fill();
@@ -556,14 +565,16 @@ function setNames(a,b){[[P[0],a],[P[1],b]].forEach(([p,n])=>{if(!n)return;p.name
   p.plate.material.map=textTex(p.name,200,64,'#1d3b36',p.accent,'bold 40px "Black Han Sans",sans-serif');p.plate.material.needsUpdate=true;});
   renderBoard();setStatus();hud();}
 function setAuto(on){autoOn=!!on;$('auto').setAttribute('aria-pressed',autoOn);clearTimeout(timer);if(autoOn){if(over)resetAll();else if(!busy)timer=setTimeout(nextRound,400);}}
-// 앱 모드 : 부모 창이 정한 결과(링)를 그대로 재생
+// 앱 모드 : 부모 창이 정한 결과(링)를 그대로 재생. 20점 과녁이므로 label은 "1"~"20"
 function playResult(m){
   if(busy)return false;
   appIdx=m.index||1;appOf=m.of||1;appWinner=m.winner||'draw';
   const q={};
-  P.forEach(p=>{const r=(m.result&&m.result[p.k])||{label:'8'};p.forced={label:String(r.label),fail:!!r.fail};q[p.k]=r.fail?0:r.label==='X'?1:r.label==='10'?.9:r.label==='9'?.7:.5;});
+  P.forEach(p=>{const r=(m.result&&m.result[p.k])||{label:'10'};p.forced={label:String(r.label),fail:!!r.fail};
+    const n=Number(r.label)||10;q[p.k]=r.fail?0:Math.max(.1,Math.min(1,n/20));});   // 20점에 가까울수록 안정(흔들림 적게)
   const sc=m.scores||{};
-  showBanner(`${appIdx}/${appOf}발`,`${m.questions&&m.questions[0]?m.questions[0]+'번 문항 · ':''}${P[0].name} ${(+sc.rabbit||0).toFixed(1)} : ${(+sc.cat||0).toFixed(1)} ${P[1].name}`);
+  const qLabel=m.questions&&m.questions.length?`${m.questions.join('·')}번 문항 합산 · `:'';
+  showBanner(`${appIdx}/${appOf}발`,`${qLabel}${P[0].name} ${(+sc.rabbit||0).toFixed(1)} : ${(+sc.cat||0).toFixed(1)} ${P[1].name}`);
   setStatus();hud();
   setTimeout(()=>nextRound(q),1100);return true;
 }

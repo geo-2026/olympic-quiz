@@ -61,7 +61,7 @@ function render() {
   const v = view, p = v.phase;
   if (p !== 'QUESTION_OPEN') stopTimer();
   if (p === 'LOBBY') root.innerHTML = `<div class="hero"><div class="faces">${face(v.me.team, 96)}</div><h2>당신은 <span class="${v.me.team === 'rabbit' ? 'r' : 'c'}">${esc(TN(v.me.team))}</span>이에요!</h2><p>팀원 ${v.counts[v.me.team]}명 · 상대 팀 ${v.counts[v.me.team === 'rabbit' ? 'cat' : 'rabbit']}명</p><p class="muted">선생님이 게임을 시작할 때까지 기다려 주세요.</p></div>`;
-  else if (p === 'READY') { const r = v.ready; root.innerHTML = `<div class="hero">${face(v.me.team, 72)}<h2>${r.no}번 문항</h2><p class="mono" style="color:var(--cyan)">${sportById[r.sport].icon} ${esc(r.sportName)} ${r.mode === 'bundle' ? `문항 ${r.indexInEvent}/${r.ofInEvent}` : `${r.indexInEvent}/${r.ofInEvent}발`}</p><p class="muted">${r.waiting ? '이번 문항은 쉬고 다음 문항부터 참여해요.' : '곧 문제가 나와요. 준비!'}</p></div>`; }
+  else if (p === 'READY') { const r = v.ready; const sub = r.mode === 'bundle' ? `문항 ${r.indexInEvent}/${r.ofInEvent}` : r.mode === 'perShot' ? `${r.shotIndex}발/${r.totalShots}발 · 문항 ${r.indexInShot}/${r.questionsPerShot}` : `${r.indexInEvent}/${r.ofInEvent}발`; root.innerHTML = `<div class="hero">${face(v.me.team, 72)}<h2>${r.no}번 문항</h2><p class="mono" style="color:var(--cyan)">${sportById[r.sport].icon} ${esc(r.sportName)} ${sub}</p><p class="muted">${r.waiting ? '이번 문항은 쉬고 다음 문항부터 참여해요.' : '곧 문제가 나와요. 준비!'}</p></div>`; }
   else if (p === 'QUESTION_OPEN' || p === 'QUESTION_CLOSED') renderQuestion(v);
   else if (p === 'REVEAL' || p === 'SCENE') renderResult(v);
   else if (p === 'EVENT_SUMMARY') renderSummary(v.summary);
@@ -69,7 +69,7 @@ function render() {
 }
 function renderQuestion(v) {
   const q = v.question, open = v.phase === 'QUESTION_OPEN';
-  const label = q.mode === 'bundle' ? `${esc(q.sportName)} 문항 ${q.indexInEvent}/${q.ofInEvent}` : `${esc(q.sportName)} ${q.indexInEvent}/${q.ofInEvent}발`;
+  const label = q.mode === 'bundle' ? `${esc(q.sportName)} 문항 ${q.indexInEvent}/${q.ofInEvent}` : q.mode === 'perShot' ? `${esc(q.sportName)} ${q.shotIndex}발/${q.totalShots}발 · 문항 ${q.indexInShot}/${q.questionsPerShot}` : `${esc(q.sportName)} ${q.indexInEvent}/${q.ofInEvent}발`;
   let body = `<div class="qhead"><span class="no">${q.no}번</span><span class="sport">${sportById[q.sport].icon} ${label}</span></div>
     <div class="timerwrap"><div class="tnum" id="tnum">${q.limit}</div><div class="tbar"><i id="tbar"></i></div></div>
     <div class="qtext">${esc(q.text)}</div>${q.image ? `<img class="qimg" src="${esc(q.image)}" alt="">` : ''}`;
@@ -117,6 +117,7 @@ function renderResult(v) {
 }
 function sceneHtml(s, t) {   // 승패·기록은 앞 화면 경기가 끝난 뒤(done)에만
   const title = `<div class="big">${sportById[s.sport].icon} ${esc(s.eventName)} ${s.mode === 'bundle' ? '' : `${s.index}/${s.of}발`}</div>`;
+
   if (!s.done || !s.result) return `<div class="scene card"><div class="muted">📺 앞 화면에서 경기를 보세요</div>${title}<div class="muted small">경기가 끝나면 결과가 나와요</div></div>`;
   const w = s.winner === 'draw' ? '무승부' : `${esc(TN(s.winner))} 승!`;
   const rec = s.mode === 'bundle' ? `${esc(s.result.rabbit.label)} vs ${esc(s.result.cat.label)}` : `${esc(s.result.rabbit.label)}점 vs ${esc(s.result.cat.label)}점`;

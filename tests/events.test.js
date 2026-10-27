@@ -31,13 +31,26 @@ test('8.5 S 동점 → 정답률 → 평균 시간 → 무승부', () => {
   assert.equal(eventWinner(ev, [R(1, 100, 100, 'draw')]).winner, 'draw');
   assert.equal(eventWinner(ev, []).status, 'notPlayed'); assert.equal(eventWinner(ev, [R(1, 1, 0, 'rabbit')]).status, 'partial');
 });
-test('8.6 문항별 종목 : 5승 5패면 T 합, T 합도 같으면 무승부', () => {
+test('8.6 발별 종목(양궁, 2문항=1발) : 발 승수 → T 합 → 무승부', () => {
+  // 10문항=5발. 각 발은 2문항 T 합으로 승자 결정
   const ev = assignEvents(22)[4];
+  assert.equal(ev.mode, 'perShot'); assert.equal(ev.count, 10); assert.equal(ev.questionsPerShot, 2); assert.equal(ev.shots, 5);
+  // 2문항씩 묶어 발 Tsum: 발1(1문·2문) 토끼200/고양이100, 발2 100/200, 발3 200/100, 발4 100/200, 발5 150/150 → 토끼 2승, 고양이 2승, 1무 → 발 승수 동률
+  const rs = [R(13,100,50,'rabbit'),R(14,100,50,'rabbit'),R(15,50,100,'cat'),R(16,50,100,'cat'),R(17,100,50,'rabbit'),R(18,100,50,'rabbit'),R(19,50,100,'cat'),R(20,50,100,'cat'),R(21,75,75,'draw'),R(22,75,75,'draw')];
+  const ew = eventWinner(ev, rs); assert.equal(ew.wins.rabbit, 2); assert.equal(ew.wins.cat, 2); assert.equal(ew.shots.length, 5); assert.equal(ew.shots[4].winner, 'draw');
+  // 양 팀 T 합도 750:750으로 같음 → 무승부
+  assert.equal(ew.Tsum.rabbit, 750); assert.equal(ew.Tsum.cat, 750); assert.equal(ew.winner, 'draw');
+  // 발 승수가 다르면 그걸로 결정
+  const rs2 = [R(13,100,50,'rabbit'),R(14,100,50,'rabbit'),R(15,50,100,'cat'),R(16,50,100,'cat'),R(17,100,50,'rabbit'),R(18,100,50,'rabbit'),R(19,100,50,'rabbit'),R(20,100,50,'rabbit'),R(21,75,75,'draw'),R(22,75,75,'draw')];
+  const ew2 = eventWinner(ev, rs2); assert.equal(ew2.wins.rabbit, 3); assert.equal(ew2.wins.cat, 1); assert.equal(ew2.winner, 'rabbit'); assert.equal(ew2.decidedBy, '발 승수');
+});
+test('8.6 사격(문항별) : 5승 5패면 T 합, T 합도 같으면 무승부', () => {
+  const ev = assignEvents(32)[5];
+  assert.equal(ev.mode, 'perQuestion'); assert.equal(ev.sport, 'pistol');
   const rs = [];
-  for (let i = 0; i < 10; i++) rs.push(R(13 + i, i < 5 ? 100 : 50, i < 5 ? 50 : 100, i < 5 ? 'rabbit' : 'cat'));
+  for (let i = 0; i < 10; i++) rs.push(R(23 + i, i < 5 ? 100 : 50, i < 5 ? 50 : 100, i < 5 ? 'rabbit' : 'cat'));
   const ew = eventWinner(ev, rs); assert.equal(ew.wins.rabbit, 5); assert.equal(ew.winner, 'draw');
-  rs[9] = R(22, 50, 101, 'cat'); assert.equal(eventWinner(ev, rs).winner, 'cat'); assert.equal(eventWinner(ev, rs).decidedBy, '문항 점수 합');
-  rs[9] = R(22, 50, 100, 'rabbit'); assert.equal(eventWinner(ev, rs).winner, 'rabbit');
+  rs[9] = R(32, 50, 101, 'cat'); assert.equal(eventWinner(ev, rs).winner, 'cat'); assert.equal(eventWinner(ev, rs).decidedBy, '문항 점수 합');
 });
 test('8.7 최종 합계 : 보너스 0점과 50점', () => {
   const rs = [R(1, 100, 90, 'rabbit'), R(2, 80, 95, 'cat')];

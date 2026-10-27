@@ -2,7 +2,7 @@
    시계(now)와 난수(random)를 주입받아 node:test에서도 그대로 돌릴 수 있다. */
 import { TEAMS, TEAM_NAME, gradeQuestion, round1, GRACE_MS } from './scoring.js';
 import { assignEvents, eventOfQuestion, eventWinner, finalTotals, sportById } from './events.js';
-import { bundleRecord, perQuestionRecord, perQuestionTotals } from './sceneResults.js';
+import { bundleRecord, perQuestionRecord, perShotRecord, perQuestionTotals } from './sceneResults.js';
 import { publicQuestion } from './questions.js';
 
 export const PHASES = ['LOBBY', 'READY', 'QUESTION_OPEN', 'QUESTION_CLOSED', 'REVEAL', 'SCENE', 'EVENT_SUMMARY', 'FINAL'];
@@ -93,8 +93,10 @@ export class Game {
   questionPayload() {
     const q = this.question, rt = this.s.q; if (!q || !rt) return null;
     const info = eventOfQuestion(this.s.events, q.no);
-    return { ...publicQuestion(q), startedAt: rt.startedAt, endsAt: rt.endsAt, serverNow: this.now(), limit: rt.limit,
+    const base = { ...publicQuestion(q), startedAt: rt.startedAt, endsAt: rt.endsAt, serverNow: this.now(), limit: rt.limit,
       sport: info.ev.sport, sportName: info.ev.name, mode: info.ev.mode, indexInEvent: info.indexInEvent, ofInEvent: info.ofInEvent, total: this.s.questions.length };
+    if (info.ev.mode === 'perShot') { base.shotIndex = info.shotIndex; base.indexInShot = info.indexInShot; base.totalShots = info.totalShots; base.questionsPerShot = info.questionsPerShot; }
+    return base;
   }
   submitAnswer(studentId, questionId, value) {
     const rt = this.s.q, st = this.s.students[studentId];
@@ -138,18 +140,28 @@ export class Game {
     const ew = eventWinner(info.ev, this.s.results);
     return { sport: info.ev.sport, name: info.ev.name, gauge: sportById[info.ev.sport].gauge, done: ew.played, of: info.ev.count, S: ew.Tsum, max: 150 * info.ev.count };
   }
+  shotProgress(no) {
+    const info = eventOfQuestion(this.s.events, no); if (!info || info.ev.mode !== 'perShot') return null;
+    const rs = this.s.results.filter(r => r.no >= info.shotFrom && r.no <= info.shotTo);
+    const S = { rabbit: round1(rs.reduce((s, r) => s + r.teams.rabbit.T, 0)), cat: round1(rs.reduce((s, r) => s + r.teams.cat.T, 0)) };
+    return { sport: info.ev.sport, name: info.ev.name, shotIndex: info.shotIndex, totalShots: info.totalShots, indexInShot: info.indexInShot, questionsPerShot: info.questionsPerShot, done: rs.length, of: info.questionsPerShot, S, max: 150 * info.questionsPerShot };
+  }
   revealPayload() {
     const r = this.s.q && this.s.q.result; const q = this.question; if (!r) return null;
     const info = eventOfQuestion(this.s.events, q.no);
-    return { questionId: q.id, no: q.no, type: q.type, text: q.text, options: q.options, answer: q.answers, explanation: q.explanation, teams: r.teams, winner: r.winner,
+    const payload = { questionId: q.id, no: q.no, type: q.type, text: q.text, options: q.options, answer: q.answers, explanation: q.explanation, teams: r.teams, winner: r.winner,
       sport: info.ev.sport, sportName: info.ev.name, mode: info.ev.mode, indexInEvent: info.indexInEvent, ofInEvent: info.ofInEvent, isLast: info.isLast,
       secret: info.ev.mode === 'bundle',   // 묶음 종목(줄다리기·스키점프·스켈레톤·멀리뛰기)은 정답·해설만 공개하고 팀 점수·정답률·문항 승리 팀은 경기 장면에서 드러낸다
       bundle: this.bundleProgress(q.no), closedReason: r.closedReason, total: this.s.questions.length };
+    if (info.ev.mode === 'perShot') { payload.shotIndex = info.shotIndex; payload.indexInShot = info.indexInShot; payload.totalShots = info.totalShots; payload.questionsPerShot = info.questionsPerShot; payload.isShotLast = info.isShotLast; payload.shot = this.shotProgress(q.no); }
+    return payload;
   }
   canPlayScene() {
     if (this.s.phase !== 'REVEAL') return false;
     const info = eventOfQuestion(this.s.events, this.question.no);
-    return info.ev.mode === 'perQuestion' || info.isLast;
+    if (info.ev.mode === 'perQuestion') return true;
+    if (info.ev.mode === 'perShot') return info.isShotLast;
+    return info.isLast;
   }
   playScene() {
     if (!this.canPlayScene()) throw new Error('지금은 경기를 볼 수 없어요.');
@@ -159,6 +171,16 @@ export class Game {
       const ew = eventWinner(ev, this.s.results);
       const rec = bundleRecord(ev.sport, ew.Tsum);
       scene = { sport: ev.sport, sceneType: sportById[ev.sport].scene, mode: 'bundle', index: 1, of: 1, questions: ew.questionNos, scores: ew.Tsum, winner: ew.winner, result: rec.result, finish: rec.finish || false, eventName: ev.name, count: ew.played };
+    } else if (ev.mode === 'perShot') {
+      // 2문항 T 합을 모아 1발로. 발 승리는 Tsum이 큰 팀
+      const shotRs = this.s.results.filter(x => x.no >= info.shotFrom && x.no <= info.shotTo).sort((a, b) => a.no - b.no);
+      const Tsum = { rabbit: round1(shotRs.reduce((s, x) => s + x.teams.rabbit.T, 0)), cat: round1(shotRs.reduce((s, x) => s + x.teams.cat.T, 0)) };
+      const shotWinner = Tsum.rabbit === Tsum.cat ? 'draw' : Tsum.rabbit > Tsum.cat ? 'rabbit' : 'cat';
+      const rec = perShotRecord(ev.sport, Tsum, shotWinner);
+      r.record = rec; r.shotWinner = shotWinner; r.shotNos = shotRs.map(x => x.no); r.shotTsum = Tsum;
+      const prev = this.s.results.filter(x => x.sport === ev.sport && x.record);
+      scene = { sport: ev.sport, sceneType: sportById[ev.sport].scene, mode: 'perShot', index: info.shotIndex, of: info.totalShots, questions: shotRs.map(x => x.no), scores: Tsum, winner: shotWinner, result: rec.result,
+        eventName: ev.name, totals: perQuestionTotals(prev.map(x => x.record)), wins: { rabbit: prev.filter(x => x.shotWinner === 'rabbit').length, cat: prev.filter(x => x.shotWinner === 'cat').length } };
     } else {
       const rec = perQuestionRecord(ev.sport, { rabbit: r.teams.rabbit.T, cat: r.teams.cat.T }, r.winner);
       r.record = rec;
@@ -174,7 +196,8 @@ export class Game {
   next() {
     const ph = this.s.phase; if (ph !== 'REVEAL' && ph !== 'SCENE') throw new Error('지금은 다음 문제로 갈 수 없어요.');
     const q = this.question, info = eventOfQuestion(this.s.events, q.no);
-    if (ph === 'REVEAL' && (info.ev.mode === 'perQuestion' || info.isLast)) throw new Error('먼저 [경기 보기]를 누르세요.');
+    const sceneNeeded = info.ev.mode === 'perQuestion' || info.isLast || (info.ev.mode === 'perShot' && info.isShotLast);
+    if (ph === 'REVEAL' && sceneNeeded) throw new Error('먼저 [경기 보기]를 누르세요.');
     const last = this.s.current >= this.s.questions.length - 1;
     if (info.isLast || last) { this.finishEvent(info.ev); return this.s.phase; }
     this.s.current++; this.s.q = null; this.s.scene = null; this.s.phase = 'READY';
@@ -184,7 +207,7 @@ export class Game {
     const ew = eventWinner(ev, this.s.results);
     const bundleScene = ev.mode === 'bundle' ? this.s.scene : null;
     const er = { ...ew, record: bundleScene ? bundleScene.result : null, finish: bundleScene ? bundleScene.finish : undefined,
-      perQuestion: ev.mode === 'perQuestion' ? this.s.results.filter(x => x.sport === ev.sport).map(x => ({ no: x.no, winner: x.winner, T: { rabbit: x.teams.rabbit.T, cat: x.teams.cat.T }, record: x.record ? x.record.result : null })) : null,
+      perQuestion: ev.mode !== 'bundle' ? this.s.results.filter(x => x.sport === ev.sport).map(x => ({ no: x.no, winner: x.winner, shotWinner: x.shotWinner, T: { rabbit: x.teams.rabbit.T, cat: x.teams.cat.T }, record: x.record ? x.record.result : null })) : null,
       Ts: this.s.results.filter(x => x.sport === ev.sport).map(x => ({ no: x.no, rabbit: x.teams.rabbit.T, cat: x.teams.cat.T, winner: x.winner })) };
     if (er.perQuestion) er.recordTotals = perQuestionTotals(this.s.results.filter(x => x.sport === ev.sport && x.record).map(x => x.record));
     this.s.eventResults = this.s.eventResults.filter(e => e.sport !== ev.sport).concat([er]);
@@ -222,7 +245,7 @@ export class Game {
       if (done && done.status === 'done') return done;
       const ew = eventWinner(ev, this.s.results);
       const Ts = this.s.results.filter(x => x.sport === ev.sport).map(x => ({ no: x.no, rabbit: x.teams.rabbit.T, cat: x.teams.cat.T, winner: x.winner }));
-      const pq = ev.mode === 'perQuestion' ? this.s.results.filter(x => x.sport === ev.sport).map(x => ({ no: x.no, winner: x.winner, record: x.record ? x.record.result : null })) : null;
+      const pq = ev.mode !== 'bundle' ? this.s.results.filter(x => x.sport === ev.sport).map(x => ({ no: x.no, winner: x.winner, shotWinner: x.shotWinner, record: x.record ? x.record.result : null })) : null;
       return { ...ew, record: done ? done.record : null, perQuestion: pq, Ts, recordTotals: pq ? perQuestionTotals(this.s.results.filter(x => x.sport === ev.sport && x.record).map(x => x.record)) : undefined };
     });
     this.s.eventResults = evs;
@@ -256,7 +279,7 @@ export class Game {
     const s = this.s, st = s.students[studentId]; if (!st) return null;
     const counts = this.counts();
     const v = { phase: s.phase, code: s.code, me: { id: st.id, studentNo: st.studentNo, name: st.name, team: st.team, teamName: this.teamName(st.team) }, counts, teamNames: { rabbit: this.teamName('rabbit'), cat: this.teamName('cat') }, now: this.now(), total: s.questions.length };
-    if (s.phase === 'READY' && this.question) { const q = this.question, info = eventOfQuestion(s.events, q.no); v.ready = { no: q.no, sportName: info.ev.name, sport: info.ev.sport, indexInEvent: info.indexInEvent, ofInEvent: info.ofInEvent, mode: info.ev.mode, waiting: st.joinedAtQuestion > s.current }; }
+    if (s.phase === 'READY' && this.question) { const q = this.question, info = eventOfQuestion(s.events, q.no); v.ready = { no: q.no, sportName: info.ev.name, sport: info.ev.sport, indexInEvent: info.indexInEvent, ofInEvent: info.ofInEvent, mode: info.ev.mode, waiting: st.joinedAtQuestion > s.current }; if (info.ev.mode === 'perShot') { v.ready.shotIndex = info.shotIndex; v.ready.indexInShot = info.indexInShot; v.ready.totalShots = info.totalShots; v.ready.questionsPerShot = info.questionsPerShot; } }
     if (s.phase === 'QUESTION_OPEN' || s.phase === 'QUESTION_CLOSED') {
       v.question = this.questionPayload();
       const rt = s.q; v.question.inRoster = rt.roster[st.team].includes(st.id); v.question.myAnswer = rt.answers[st.id] ? rt.answers[st.id].value : null;

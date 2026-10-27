@@ -214,13 +214,13 @@ function renderStage(v) {
   if (p === 'READY') {
     if (timer) { timer.stop(); timer = null; }
     const q = v.question, ev = q.ev;
-    st.innerHTML = `<div class="ready"><div class="no">${q.no}번</div><div class="sport">${sportById[ev.sport].icon} ${esc(ev.name)} · ${ev.mode === 'bundle' ? `문항 ${q.indexInEvent}/${q.ofInEvent}` : `${q.indexInEvent}/${q.ofInEvent}발`}</div>
+    st.innerHTML = `<div class="ready"><div class="no">${q.no}번</div><div class="sport">${sportById[ev.sport].icon} ${esc(ev.name)} · ${ev.mode === 'bundle' ? `문항 ${q.indexInEvent}/${q.ofInEvent}` : ev.mode === 'perShot' ? `${q.shotIndex}발/${q.totalShots}발 · 문항 ${q.indexInShot}/${q.questionsPerShot}` : `${q.indexInEvent}/${q.ofInEvent}발`}</div>
       <div class="type">${TYPE_NAME[q.type]} · 제한 시간 ${q.limit}초</div>${bundleGauge(game.bundleProgress(q.no))}<p class="muted">[문제 시작]을 누르면 모든 학생에게 동시에 보냅니다.</p></div>`;
     return;
   }
   if (p === 'QUESTION_OPEN' || p === 'QUESTION_CLOSED') {
     const q = v.question, open = p === 'QUESTION_OPEN';
-    const label = q.mode === 'bundle' ? `${esc(q.sportName)} 문항 ${q.indexInEvent}/${q.ofInEvent}` : `${esc(q.sportName)} ${q.indexInEvent}/${q.ofInEvent}발`;
+    const label = q.mode === 'bundle' ? `${esc(q.sportName)} 문항 ${q.indexInEvent}/${q.ofInEvent}` : q.mode === 'perShot' ? `${esc(q.sportName)} ${q.shotIndex}발/${q.totalShots}발 · 문항 ${q.indexInShot}/${q.questionsPerShot}` : `${esc(q.sportName)} ${q.indexInEvent}/${q.ofInEvent}발`;
     const allSub = !open && v.closedReason === 'all' && Date.now() - v.closedAt < 3000;
     st.innerHTML = `<div class="stg-title"><h2>${q.no}번</h2><span class="sub">${label} · ${TYPE_NAME[q.type]}</span></div>
       <div class="timerwrap"><div class="tnum" id="tnum">${q.limit}</div><div class="tbar"><i id="tbar"></i></div></div>
@@ -244,7 +244,8 @@ function renderStage(v) {
     let bar = $('scenebar'); if (!bar) { bar = document.createElement('div'); bar.id = 'scenebar'; bar.className = 'scenebar'; $('stagewrap').appendChild(bar); }
     bar.style.display = 'flex';
     const hideScore = sc.mode === 'bundle' && !sc.done;   // 묶음 종목 : 합산 점수는 경기가 끝난 뒤에
-    bar.innerHTML = `<span>${sportById[sc.sport].icon} ${esc(sc.eventName)} ${sc.mode === 'bundle' ? `· ${sc.questions.length}문항 합산` : `· ${sc.index}/${sc.of}발 (${sc.questions[0]}번)`}</span>${hideScore ? '<span class="muted">🔒 결과는 경기로 확인!</span>' : `<span class="r">${esc(TN('rabbit'))} ${fmt1(sc.scores.rabbit)}</span><span>:</span><span class="c">${fmt1(sc.scores.cat)} ${esc(TN('cat'))}</span>`}<span class="spacer" style="flex:1"></span><span>${sc.done ? '경기 끝 · [다음 문제]를 누르세요' : '경기 중…'}</span>${sc.done ? '' : '<button class="btn sm ghost" id="btnSkipScene">건너뛰기</button>'}`;
+    const shotLabel = sc.mode === 'bundle' ? `· ${sc.questions.length}문항 합산` : sc.mode === 'perShot' ? `· ${sc.index}발/${sc.of}발 (${sc.questions.join(',')}번 합산)` : `· ${sc.index}/${sc.of}발 (${sc.questions[0]}번)`;
+    bar.innerHTML = `<span>${sportById[sc.sport].icon} ${esc(sc.eventName)} ${shotLabel}</span>${hideScore ? '<span class="muted">🔒 결과는 경기로 확인!</span>' : `<span class="r">${esc(TN('rabbit'))} ${fmt1(sc.scores.rabbit)}</span><span>:</span><span class="c">${fmt1(sc.scores.cat)} ${esc(TN('cat'))}</span>`}<span class="spacer" style="flex:1"></span><span>${sc.done ? '경기 끝 · [다음 문제]를 누르세요' : '경기 중…'}</span>${sc.done ? '' : '<button class="btn sm ghost" id="btnSkipScene">건너뛰기</button>'}`;
     const b = $('btnSkipScene'); if (b) b.onclick = () => skipScene('장면을 건너뛰었어요.');
     return;
   }
@@ -266,7 +267,7 @@ function bundleGauge(b) {   // 묶음 종목 : 두 팀의 누적 점수는 감�
     <div class="gauge n"><i style="width:${Math.min(100, b.done / b.of * 100)}%"></i></div></div>`;
 }
 function revealHtml(r) {
-  const q = r; const label = q.mode === 'bundle' ? `${esc(q.sportName)} 문항 ${q.indexInEvent}/${q.ofInEvent}` : `${esc(q.sportName)} ${q.indexInEvent}/${q.ofInEvent}발`;
+  const q = r; const label = q.mode === 'bundle' ? `${esc(q.sportName)} 문항 ${q.indexInEvent}/${q.ofInEvent}` : q.mode === 'perShot' ? `${esc(q.sportName)} ${q.shotIndex}발/${q.totalShots}발 · 문항 ${q.indexInShot}/${q.questionsPerShot}` : `${esc(q.sportName)} ${q.indexInEvent}/${q.ofInEvent}발`;
   const opts = q.type === 'ox' ? `<div class="ox"><div class="opt ${q.answer[0] === 'O' ? 'ans' : ''}">O</div><div class="opt ${q.answer[0] === 'X' ? 'ans' : ''}">X</div></div>`
     : q.type === 'choice' ? `<div class="opts">${q.options.map((o, i) => `<div class="opt ${q.answer[0] === i + 1 ? 'ans' : ''}"><span class="n">${'①②③④'[i]}</span><span>${esc(o)}</span></div>`).join('')}</div>`
       : `<div class="answerbox">정답 : ${esc(q.answer.join(' / '))}</div>`;
@@ -301,7 +302,7 @@ function finalHtml(f, v) {
   const head = w === 'draw' ? '<h2 style="font-size:3.6rem;text-align:center">무승부!</h2>' : `<h2 style="font-size:3.6rem;text-align:center" class="${w === 'rabbit' ? 'r' : 'c'}">🏆 ${esc(TN(w))} 우승!</h2>`;
   const podium = `<div class="podium">${['rabbit', 'cat'].sort((a, b) => f.totals[b] - f.totals[a]).map((t, i) => `<div class="p ${w === t ? 'win' : ''}"><div class="faces">${face(t, 80)}${face(t, 80)}${face(t, 80)}</div><div class="blk bg-${t === 'rabbit' ? 'r' : 'c'}" style="height:${i === 0 ? 110 : 70}px">${i === 0 && w !== 'draw' ? '1' : w === 'draw' ? '1' : '2'}</div><div class="mono" style="font-size:1.6rem">${fmt1(f.totals[t])}점</div></div>`).join('')}</div>`;
   const W = t => (t === 'draw' ? '무승부' : esc(TN(t)));
-  const rows = f.events.map(e => `<tr><td>${sportById[e.sport].icon} ${esc(e.name)}</td><td>${e.from}~${e.to}</td><td>${e.mode === 'bundle' ? '묶음' : '문항별'}</td>
+  const rows = f.events.map(e => `<tr><td>${sportById[e.sport].icon} ${esc(e.name)}</td><td>${e.from}~${e.to}</td><td>${e.mode === 'bundle' ? '묶음' : e.mode === 'perShot' ? '발별' : '문항별'}</td>
     <td class="${e.winner === 'rabbit' && e.status !== 'notPlayed' ? 'win' : ''}">${e.mode === 'bundle' ? fmt1(e.Tsum.rabbit) : e.wins.rabbit + '승'}${e.record ? ` (${esc(e.record.rabbit.label)})` : ''}</td>
     <td class="${e.winner === 'cat' && e.status !== 'notPlayed' ? 'win' : ''}">${e.mode === 'bundle' ? fmt1(e.Tsum.cat) : e.wins.cat + '승'}${e.record ? ` (${esc(e.record.cat.label)})` : ''}</td>
     <td>${e.status === 'notPlayed' ? '<span class="muted">미진행</span>' : W(e.winner) + (e.status === 'partial' ? ` <span class="muted small">(부분 진행 ${e.played}/${e.count}문항)</span>` : '')}</td></tr>`).join('');
@@ -323,7 +324,7 @@ function renderQuestionsTab() {
   $('qTable').innerHTML = src.length ? `<thead><tr><th>#</th><th>유형</th><th>문제</th><th>정답</th><th>초</th></tr></thead><tbody>${src.map((q, i) => `<tr class="${q.errors && q.errors.length ? 'err' : ''}"><td>${i + 1}</td><td>${TYPE_NAME[q.type] || '?'}</td><td>${esc((q.text || '').slice(0, 60))}${q.errors && q.errors.length ? `<div class="e">${esc(q.errors.join(', '))}</div>` : ''}</td><td>${esc(q.answerRaw ?? (q.answers || []).join('|'))}</td><td>${q.limit ?? ''}</td></tr>`).join('')}</tbody>` : '<tbody><tr><td class="muted">엑셀을 올리거나 예시 문항을 불러오세요.</td></tr></tbody>';
   const n = pending ? applyOrder(pending.parsed.filter(q => !q.errors.length)).length : v.total;
   const evs = assignEvents(n);
-  $('evTable').innerHTML = `<thead><tr><th>종목</th><th>방식</th><th>문항</th><th>수</th></tr></thead><tbody>${evs.map(e => `<tr><td>${sportById[e.sport].icon} ${e.name}</td><td>${e.mode === 'bundle' ? '묶음(합산 1회)' : '문항별'}</td><td>${e.from}~${e.to}</td><td>${e.count}${e.partialBundle ? ` <span class="e">(${e.count}문항 합산)</span>` : ''}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">문항이 없어요</td></tr>'}</tbody>`;
+  $('evTable').innerHTML = `<thead><tr><th>종목</th><th>방식</th><th>문항</th><th>수</th></tr></thead><tbody>${evs.map(e => `<tr><td>${sportById[e.sport].icon} ${e.name}</td><td>${e.mode === 'bundle' ? '묶음(합산 1회)' : e.mode === 'perShot' ? `발별(2문항=1발, ${Math.ceil(e.count/2)}발)` : '문항별'}</td><td>${e.from}~${e.to}</td><td>${e.count}${e.partialBundle ? ` <span class="e">(${e.count}문항 합산)</span>` : ''}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">문항이 없어요</td></tr>'}</tbody>`;
   $('qInfo').innerHTML = pending ? (pending.errors ? `<span class="e" style="color:var(--no)">오류 ${pending.errors}개 — 고친 뒤 다시 올려 주세요.</span>` : `${pending.parsed.length}문항 읽음${pending.name ? ' · ' + esc(pending.name) : ''} → 사용 ${n}문항`) : '';
 }
 function applyOrder(list) {
