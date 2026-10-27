@@ -147,6 +147,8 @@ html.app .tcard canvas{max-width:min(100%,340px)}
 
 <script src="../lib/three.min.js"></script>
 <script>window.THREE||document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>')</script>
+<script src="../../lib/zzfx.js"></script>
+<script src="../../lib/sfx.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 const REDUCED=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -359,7 +361,7 @@ function release(p,t){
   if(APP&&p.forced) hit=forcedHit(p.forced);               // 앱 모드 : 부모 창이 정한 링
   else hit={x:a.x+wind*DRIFT+gauss()*1.4,y:a.y+gauss()*1.4};
   Object.assign(hit,scoreOf(hit.x,hit.y));
-  p.phase='fly';p.t0=t;
+  p.phase='fly';p.t0=t;SFX.play('twang');
   const m=p.model;m.arrow.visible=false;
   const fl=makeArrow(p.accent);scene.add(fl);
   const start=new THREE.Vector3();m.arrow.getWorldPosition(start);
@@ -370,7 +372,7 @@ function release(p,t){
   const pos=t=>V(start.x+(endO.x-start.x)*t,start.y+(endO.y-start.y)*t+4*peak*t*(1-t),start.z+(endO.z-start.z)*t);
   p.flying=fl;
   tween(dur,k=>{fl.position.copy(pos(k));fl.lookAt(pos(Math.min(1,k+.02)).add(dir.clone().multiplyScalar(k>=.98?1:0)));},
-    ()=>{fl.position.copy(endO);fl.lookAt(tipW);p.face.attach(fl);p.stuck.push(fl);p.flying=null;
+    ()=>{fl.position.copy(endO);fl.lookAt(tipW);p.face.attach(fl);p.stuck.push(fl);p.flying=null;SFX.play('arrowHit');
       (shootoff?(p.so=hit):cur(p).push(hit));p.last=hit;paintFace(p);updateCard(p,true);renderBoard();
       emit('shot',{set,shootoff,player:p.k,name:p.name,score:hit.v,x:hit.x,label:hit.label,setTotal:sum(cur(p))});
       p.phase='follow';p.t0=performance.now()/1000;camHold={p,until:performance.now()+1300};
@@ -411,6 +413,7 @@ function appAfterPair(){
   arrowsInSet++;P.forEach(p=>updateCard(p));hud();setStatus();busy=false;
   const [a,b]=P,wn=appWinner==='draw'?'무승부':`${(appWinner==='rabbit'?a:b).name} 승`;
   showBanner(`${appIdx}/${appOf}발 · ${wn}`,`${a.name} ${a.last.label} : ${b.last.label} ${b.name} · 합계 ${sum(a.sets[0])} : ${sum(b.sets[0])}`);
+  if(appWinner!=='draw')SFX.play('cheerShort',.8);
   setTimeout(()=>emit('done',{index:appIdx,totals:{rabbit:sum(a.sets[0]),cat:sum(b.sets[0])}}),1500);
 }
 function finish(w){
@@ -577,13 +580,14 @@ window.addEventListener('message',e=>{const m=e.data;if(!m||m.type!=='archeryDue
   if(m.action==='shoot')emit('shootAccepted',{accepted:ArcheryDuel.shoot(m.quality)!==false});
   else if(m.action==='playResult')emit('playAccepted',{accepted:playResult(m)});
   else if(m.action==='eventSummary')showBanner(m.title||'',m.text||'',true);
+  else if(m.action==='sound')SFX.set(!!m.on,m.volume);
   else if(m.action==='reset')ArcheryDuel.reset();
   else if(m.action==='auto')ArcheryDuel.setAuto(m.on);
   else if(m.action==='names')ArcheryDuel.setNames(m.names&&m.names[0],m.names&&m.names[1]);
   else if(m.action==='state')emit('state',ArcheryDuel.getState());});
 if(Q.get('auto')==='0'||APP){autoOn=false;$('auto').setAttribute('aria-pressed','false');}
 if(Q.get('ui')==='min'||APP)document.documentElement.classList.add('ui-min');
-if(APP)document.documentElement.classList.add('app');
+if(APP)document.documentElement.classList.add('app');else SFX.set(true,.6);
 resetAll();
 if(Q.get('names')){const n=Q.get('names').split(',');setNames(n[0],n[1]);}
 requestAnimationFrame(loop);

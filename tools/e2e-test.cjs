@@ -101,7 +101,17 @@ const waitFor = async (page, fn, arg, timeout = 15000) => { try { await page.wai
       const t0 = students[0].team, exp = Math.round((students.filter(s => s.team === t0).reduce((a, s) => a + 0, 0)) * 10) / 10;
       const teamT = r.teams[t0].T, tot = byTeam(t0).length; ok(teamT > 0 && r.teams[t0].total === tot, `팀 T=${teamT} (분모 팀 인원 ${tot})`);
       ok(r.bundle && r.bundle.done === 1 && r.bundle.of === 3 && r.bundle.gauge === '힘 모으기', '묶음 누적 게이지 1/3 힘 모으기');
-      ok((await admin.$eval('#stage', e => e.innerText)).includes('힘 모으기 1/3'), '무대 : 누적 게이지 표시');
+      const stg = await admin.$eval('#stage', e => e.innerText);
+      ok(stg.includes('힘 모으기 1/3'), '무대 : 누적 진행 표시');
+      ok(r.secret === true && !/\d+%/.test(stg) && !stg.includes('문항 승리') && !stg.includes('평균 정답 시간') && stg.includes('경기에서 공개'), '묶음 종목 : 무대에 팀 점수·정답률(%)·문항 승리 팀 없음, 경기에서 공개 안내');
+      const sv = await students[0].p.evaluate(() => OLQS.view.result);
+      ok(sv.secret === true && sv.teams === undefined && sv.winner === undefined && sv.answer && sv.answer.length > 0 && sv.bundle && sv.bundle.S === undefined, '학생 : 정답은 받고 팀 통계·누적 점수는 못 받음');
+      ok(await students[0].p.evaluate(() => document.body.innerText.includes('경기에서 공개') && !/\d+%/.test(document.body.innerText) && !document.body.innerText.includes('문항 승리')), '학생 화면 : 경기에서 공개 안내, 정답률(%)·문항 승리 없음');
+    }
+    if (i === 12) {   // 13번 = 양궁(문항별) : 그대로 공개
+      const stg = await admin.$eval('#stage', e => e.innerText);
+      ok(r.secret === false && stg.includes('정답률'), '문항별 종목(양궁) : 정답률·문항 승리 공개');
+      const sv = await students[0].p.evaluate(() => OLQS.view.result); ok(sv.teams && sv.teams.rabbit && typeof sv.winner === 'string', '학생 : 문항별 종목은 팀 통계 표시');
     }
     const can = await admin.evaluate(() => OLQ.game.canPlayScene());
     const info = await admin.evaluate(no => { const m = OLQ.game.state.events; return m.find(e => no >= e.from && no <= e.to); }, q.no);
@@ -111,9 +121,13 @@ const waitFor = async (page, fn, arg, timeout = 15000) => { try { await page.wai
       await aclick('#cScene');
       ok(await waitFor(admin, () => OLQ.game.phase === 'SCENE' && document.getElementById('sceneFrame').style.display === 'block'), `${info.sport} 경기 장면 재생`);
       ok(await waitFor(students[0].p, () => OLQS.view.phase === 'SCENE' && document.body.innerText.includes('앞 화면에서 경기를 보세요')), '학생 : 경기 중 안내');
+      const svs = await students[0].p.evaluate(() => OLQS.view.scene); ok(svs && !svs.done && svs.winner === null && svs.result === null, '학생 : 경기 중에는 승패·기록 숨김');
+      const barTxt = await admin.$eval('#scenebar', e => e.innerText); ok(info.mode === 'bundle' ? barTxt.includes('결과는 경기로') : /\d+\.\d/.test(barTxt), `장면 바 : ${info.mode === 'bundle' ? '묶음 점수 숨김' : '문항별 점수 표시'}`);
       const sc = await admin.evaluate(() => OLQ.game.state.scene);
       if (info.mode === 'bundle') ok(sc.mode === 'bundle' && sc.questions.length === 3 && sc.of === 1, `묶음 장면 : 3문항 합산 ${JSON.stringify(sc.scores)} → ${sc.winner}`); else ok(sc.mode === 'perQuestion' && sc.of === info.to - info.from + 1, `문항별 장면 : ${sc.index}/${sc.of}발 → ${sc.winner}`);
-      if (FULL_SCENES || scenesPlayed === 0) { const done = await waitFor(admin, () => OLQ.game.state.scene.done, null, 90000); ok(done, `${info.sport} 장면 done 수신`); }
+      if (FULL_SCENES || scenesPlayed === 0) { const done = await waitFor(admin, () => OLQ.game.state.scene.done, null, 90000); ok(done, `${info.sport} 장면 done 수신`);
+        ok(await waitFor(students[0].p, () => OLQS.view.scene && OLQS.view.scene.done && OLQS.view.scene.result && /승|무승부/.test(document.body.innerText)), '학생 : 경기 끝 → 승패·기록 표시');
+        ok((await admin.$eval('#scenebar', e => e.innerText)).includes(':'), '장면 바 : 경기 끝 → 점수 표시'); }
       else { await sleep(1500); await aclick('#btnSkipScene'); await sleep(200); }
       scenesPlayed++;
       ok(await waitFor(admin, () => !document.getElementById('cNext').disabled), '장면 끝 → 다음 문제 활성');

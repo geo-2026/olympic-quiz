@@ -83,6 +83,7 @@ html.ui-min header,html.ui-min .controls,html.ui-min .board{display:none}
 html.ui-min .wrap{padding-block:8px;gap:10px}
 html.app .drag{display:none}
 html.app .tcard canvas{max-width:min(100%,340px)}
+html.app .range{aspect-ratio:16/8}   /* 다른 종목 장면과 같은 화면 크기 */
 @media (max-width:640px){.targets{grid-template-columns:1fr}.thead .score .now{font-size:32px}}
 </style>
 <style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
@@ -113,6 +114,7 @@ html.app .tcard canvas{max-width:min(100%,340px)}
     <span class="sep" aria-hidden="true"></span>
     <button class="btn" id="vFront" aria-pressed="true">정면 중계</button>
     <button class="btn" id="vBack" aria-pressed="false">어깨 너머</button>
+    <button class="btn" id="vWide" aria-pressed="false">선수+표적</button>
   </div>
 
   <div class="targets">
@@ -143,6 +145,8 @@ html.app .tcard canvas{max-width:min(100%,340px)}
 
 <script src="../lib/three.min.js"></script>
 <script>window.THREE||document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>')</script>
+<script src="../../lib/zzfx.js"></script>
+<script src="../../lib/sfx.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 const REDUCED=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -189,7 +193,7 @@ const renderer=new THREE.WebGLRenderer({antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputEncoding=THREE.sRGBEncoding;
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 range.prepend(renderer.domElement);
-const scene=new THREE.Scene();scene.background=new THREE.Color('#0c1424');scene.fog=new THREE.Fog('#0c1424',12,26);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#0c1424');scene.fog=new THREE.Fog('#0c1424',18,40);   // 넓은 시점에서 표적(약 16m)이 안개에 묻히지 않게
 const camera=new THREE.PerspectiveCamera(38,16/7,.05,60);
 scene.add(new THREE.HemisphereLight('#cfe0ff','#16203a',.6));
 const key=new THREE.DirectionalLight('#ffffff',.75);key.position.set(3,8,-4);key.castShadow=true;key.shadow.mapSize.set(2048,2048);
@@ -329,7 +333,7 @@ function fire(p,t){
   if(APP&&p.forced){ // 앱 모드 : 받은 점수에 맞는 거리에 탄흔. 탄흔 거리 = (10.9 − 점수) × 8mm + (0~0.8mm)
     const d=(10.9-p.forced.value)*8+Math.random()*.8,ang=Math.random()*Math.PI*2;s={x:d*Math.cos(ang),y:d*Math.sin(ang)};s.s=Math.round(p.forced.value*10)/10;}
   else{s={x:a.x+gauss()*1.2,y:a.y+gauss()*1.2};s.s=score(s.x,s.y);}
-  p.recoil=1;p.phase='after';p.t0=t;
+  p.recoil=1;p.phase='after';p.t0=t;SFX.play('gunshot');
   // 탄 궤적
   const start=new THREE.Vector3();p.model.muzzle.getWorldPosition(start);
   const end=V(p.x+s.x*MM3,TY+s.y*MM3,TZ+.04);
@@ -339,6 +343,7 @@ function fire(p,t){
   const tg=new THREE.BufferGeometry().setFromPoints([start,start]);const tr=new THREE.Line(tg,new THREE.LineBasicMaterial({color:'#ffc23d',transparent:true,opacity:.85}));scene.add(tr);
   tween(REDUCED?60:380,k=>{pel.position.lerpVectors(start,end,k);tg.setFromPoints([new THREE.Vector3().lerpVectors(start,end,Math.max(0,k-.25)),pel.position.clone()]);},
     ()=>{scene.remove(pel);tween(300,k=>tr.material.opacity=.85*(1-k),()=>scene.remove(tr));
+      SFX.play('ping',.8);
       p.shots.push(s);p.total=Math.round((p.total+s.s)*10)/10;p.fired=true;
       paintTarget3D(p);updateCard(p,true);renderBoard();hud();
       emit('shot',{round,player:p.k,name:p.name,score:s.s,total:p.total});
@@ -363,6 +368,7 @@ function appRoundDone(){
   const wn=appWinner==='draw'?'무승부':`${(appWinner==='rabbit'?a:b).name} 승`;
   const el=$('banner');el.style.color=appWinner==='draw'?'#fff':(appWinner==='rabbit'?a:b).accent;
   showBanner(`${appIdx}/${appOf}발 · ${wn}`,`${a.name} ${sa.toFixed(1)} : ${sb.toFixed(1)} ${b.name} · 합계 ${a.total.toFixed(1)} : ${b.total.toFixed(1)}`);
+  if(appWinner!=='draw')SFX.play('cheerShort',.8);
   setStatus();setTimeout(()=>emit('done',{index:appIdx,totals:{rabbit:a.total,cat:b.total}}),1500);
 }
 let bannerT=null;
@@ -427,7 +433,8 @@ function renderBoard(){
 const tweens=[];function tween(d,fn,done){tweens.push({t0:performance.now(),d,fn,done});}
 const pelGeo=new THREE.BoxGeometry(.014,.014,.014),pelMat=new THREE.MeshBasicMaterial({color:'#ffc23d'});
 const puffTex=ctex(pxCanvas(64,64,x=>{const g=x.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,'rgba(255,255,255,.9)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,64,64);}));
-const VIEWS={front:{yaw:3.55,pitch:.12,dist:3.9,look:V(0,1.3,-.6)},back:{yaw:.3,pitch:.1,dist:4.2,look:V(0,1.3,-3)}};
+// wide : 사대 뒤 위에서 두 선수와 10m 앞 표적이 한 화면에 들어오는 시점(앱 모드 기본)
+const VIEWS={front:{yaw:3.55,pitch:.12,dist:3.9,look:V(0,1.3,-.6)},back:{yaw:.3,pitch:.1,dist:4.2,look:V(0,1.3,-3)},wide:{yaw:.3,pitch:.25,dist:10.3,look:V(0,.9,-5),fov:38}};
 let view='front';const cam={...VIEWS.front};const camPos=V(0,2,-5),lookCur=V(0,1.3,-1);let snap=true,drag=null;
 renderer.domElement.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};renderer.domElement.setPointerCapture(e.pointerId);});
 renderer.domElement.addEventListener('pointermove',e=>{if(!drag)return;cam.yaw-=(e.clientX-drag.x)*.006;cam.pitch=Math.max(-.02,Math.min(1.1,cam.pitch+(e.clientY-drag.y)*.004));drag={x:e.clientX,y:e.clientY};});
@@ -470,8 +477,8 @@ function loop(ms){
   const k=1-Math.pow(.03,dt);camPos.lerp(want,k);lookCur.lerp(L,k);camera.position.copy(camPos);camera.lookAt(lookCur);
   renderer.render(scene,camera);requestAnimationFrame(loop);
 }
-function setView(v){view=v;Object.assign(cam,VIEWS[v]);$('vFront').setAttribute('aria-pressed',v==='front');$('vBack').setAttribute('aria-pressed',v==='back');}
-$('vFront').onclick=()=>setView('front');$('vBack').onclick=()=>setView('back');
+function setView(v){view=v;Object.assign(cam,VIEWS[v]);camera.fov=VIEWS[v].fov||38;camera.updateProjectionMatrix();['front','back','wide'].forEach(k=>$('v'+k[0].toUpperCase()+k.slice(1)).setAttribute('aria-pressed',v===k));}
+$('vFront').onclick=()=>setView('front');$('vBack').onclick=()=>setView('back');$('vWide').onclick=()=>setView('wide');
 $('next').onclick=()=>{autoOn=false;$('auto').setAttribute('aria-pressed','false');clearTimeout(timer);nextRound();};
 $('auto').onclick=()=>{autoOn=!autoOn;$('auto').setAttribute('aria-pressed',autoOn);clearTimeout(timer);if(autoOn){if(over)resetAll();else if(P.every(p=>p.fired))timer=setTimeout(nextRound,400);}};
 $('reset').onclick=resetAll;
@@ -513,6 +520,7 @@ window.addEventListener('message',e=>{const m=e.data;if(!m||m.type!=='pistolDuel
   if(m.action==='shoot') emit('shootAccepted',{accepted:PistolDuel.shoot(m.quality)!==false});
   else if(m.action==='playResult') emit('playAccepted',{accepted:playResult(m)});
   else if(m.action==='eventSummary'){$('banner').style.color='#fff';showBanner(m.title||'',m.text||'',true);}
+  else if(m.action==='sound') SFX.set(!!m.on,m.volume);
   else if(m.action==='reset') PistolDuel.reset(m.shots);
   else if(m.action==='auto') PistolDuel.setAuto(m.on);
   else if(m.action==='names') PistolDuel.setNames(m.names&&m.names[0],m.names&&m.names[1]);
@@ -521,7 +529,7 @@ window.addEventListener('message',e=>{const m=e.data;if(!m||m.type!=='pistolDuel
 // 주소 옵션: ?names=1모둠,2모둠 &shots=5 &auto=0 &ui=min &mode=app
 if(Q.get('auto')==='0'||APP){autoOn=false;$('auto').setAttribute('aria-pressed','false');}
 if(Q.get('ui')==='min'||APP)document.documentElement.classList.add('ui-min');
-if(APP)document.documentElement.classList.add('app');
+if(APP){document.documentElement.classList.add('app');setView('wide');snap=true;}else SFX.set(true,.6);
 resetAll();
 if(Q.get('names')){const n=Q.get('names').split(',');setNames(n[0],n[1]);}
 requestAnimationFrame(loop);

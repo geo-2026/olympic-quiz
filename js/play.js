@@ -12,6 +12,7 @@ const Q = new URLSearchParams(location.search);
 const transport = detectTransport();
 const audio = new GameAudio();
 let net = null, me = null, view = null, timer = null, saved = null, draft = { questionId: null, value: null, sent: false, locked: false };
+const played = { result: null, final: false };   // 소리를 한 번만 내기 위한 기억
 const TN = t => (view && view.teamNames ? view.teamNames[t] : t === 'rabbit' ? '토끼팀' : '고양이팀');
 const face = (t, s = 40) => faceImg(t, s);
 
@@ -92,25 +93,34 @@ function submit(value, btn) {
   draft.value = value; draft.sent = true; draft.locked = true;
   if (btn) btn.classList.add('sel');
   if (navigator.vibrate) { try { navigator.vibrate(40); } catch (e) { } }
+  audio.click();
   net.send({ type: 'answer', questionId: draft.questionId, answer: value });
   render();
 }
 function stopTimer() { if (timer) { timer.stop(); timer = null; } document.body.classList.remove('t-green', 't-yellow', 't-orange', 't-red', 't-last3', 't-over', 't-submitted'); $('countdown').textContent = ''; }
 function renderResult(v) {
   const r = v.result, my = r.my, t = v.me.team;
+  if (played.result !== r.no) { played.result = r.no; if (my && my.submitted) { if (my.correct) audio.correct(); else audio.wrong(); } }
   const mine = !my ? `<div class="result"><div class="muted">이번 문항은 참여하지 않았어요</div></div>` : `<div class="result"><div class="mark ${my.correct ? 'ok' : 'no'}">${my.correct ? '○' : '×'}</div><div class="score">${my.correct ? '+' + fmt1(my.score) : '0.0'}점</div><div class="muted">${my.submitted ? '내 답 : ' + esc(fmtAnswer(r, my.value)) : '미제출'}</div></div>`;
   const ans = r.type === 'choice' ? `${'①②③④'[r.answer[0] - 1]} ${esc(r.options[r.answer[0] - 1])}` : esc(r.answer.join(' / '));
-  const bundle = r.bundle ? `<div class="bundle"><div class="lab"><span>${sportById[r.bundle.sport].icon} ${esc(r.bundle.gauge)} ${r.bundle.done}/${r.bundle.of}</span><span>우리 팀 ${fmt1(r.bundle.S[t])}점</span></div><div class="gauge ${t === 'rabbit' ? 'r' : 'c'}"><i style="width:${Math.min(100, r.bundle.S[t] / r.bundle.max * 100)}%"></i></div></div>` : '';
   const scene = v.phase === 'SCENE' && v.scene ? sceneHtml(v.scene, t) : '';
-  $('view').innerHTML = `<div class="qhead"><span class="no">${r.no}번 결과</span><span class="sport">${sportById[r.sport].icon} ${esc(r.sportName)}</span></div>${mine}
-    <div class="card"><div class="muted small">정답</div><div style="font-size:1.2rem;font-weight:700">${ans}</div>${r.explanation ? `<div class="small" style="margin-top:6px">${esc(r.explanation)}</div>` : ''}</div>
+  const head = `<div class="qhead"><span class="no">${r.no}번 결과</span><span class="sport">${sportById[r.sport].icon} ${esc(r.sportName)}</span></div>${mine}
+    <div class="card"><div class="muted small">정답</div><div style="font-size:1.2rem;font-weight:700">${ans}</div>${r.explanation ? `<div class="small" style="margin-top:6px">${esc(r.explanation)}</div>` : ''}</div>`;
+  if (r.secret) {   // 묶음 종목 : 팀 점수·정답률·문항 승리 팀은 경기에서 공개
+    const b = r.bundle;
+    $('view').innerHTML = `${head}<div class="card secret">🔒 두 팀의 점수와 정답률은 <b>${sportById[r.sport].icon} ${esc(r.sportName)} 경기</b>에서 공개돼요${b ? `<div class="small muted" style="margin-top:4px">${esc(b.gauge)} ${b.done}/${b.of}</div><div class="gauge n"><i style="width:${Math.min(100, b.done / b.of * 100)}%"></i></div>` : ''}</div>${scene}`;
+    return;
+  }
+  $('view').innerHTML = `${head}
     <div class="teams2">${['rabbit', 'cat'].map(k => `<div class="t ${k} ${r.winner === k ? 'win' : ''}">${face(k, 32)}<div>${esc(TN(k))}</div><b>${fmt1(r.teams[k].T)}</b><div class="small muted">정답률 ${r.teams[k].correctRate}%</div></div>`).join('')}</div>
-    <div class="winline">${r.winner === 'draw' ? '무승부' : `${esc(TN(r.winner))} 문항 승리!`}</div>${bundle}${scene}`;
+    <div class="winline">${r.winner === 'draw' ? '무승부' : `${esc(TN(r.winner))} 문항 승리!`}</div>${scene}`;
 }
-function sceneHtml(s, t) {
+function sceneHtml(s, t) {   // 승패·기록은 앞 화면 경기가 끝난 뒤(done)에만
+  const title = `<div class="big">${sportById[s.sport].icon} ${esc(s.eventName)} ${s.mode === 'bundle' ? '' : `${s.index}/${s.of}발`}</div>`;
+  if (!s.done || !s.result) return `<div class="scene card"><div class="muted">📺 앞 화면에서 경기를 보세요</div>${title}<div class="muted small">경기가 끝나면 결과가 나와요</div></div>`;
   const w = s.winner === 'draw' ? '무승부' : `${esc(TN(s.winner))} 승!`;
   const rec = s.mode === 'bundle' ? `${esc(s.result.rabbit.label)} vs ${esc(s.result.cat.label)}` : `${esc(s.result.rabbit.label)}점 vs ${esc(s.result.cat.label)}점`;
-  return `<div class="scene card"><div class="muted">📺 앞 화면에서 경기를 보세요</div><div class="big">${sportById[s.sport].icon} ${esc(s.eventName)} ${s.mode === 'bundle' ? '' : `${s.index}/${s.of}발`}</div><div class="big ${s.winner === 'rabbit' ? 'r' : s.winner === 'cat' ? 'c' : ''}">${w}</div><div class="mono">${rec}</div></div>`;
+  return `<div class="scene card"><div class="muted">📺 앞 화면에서 경기를 보세요</div>${title}<div class="big ${s.winner === 'rabbit' ? 'r' : s.winner === 'cat' ? 'c' : ''}">${w}</div><div class="mono">${rec}</div></div>`;
 }
 function renderSummary(s) {
   const e = s.event, w = e.winner === 'draw' ? '무승부' : `${esc(TN(e.winner))} 승리`;
@@ -123,6 +133,7 @@ function renderSummary(s) {
 }
 function renderFinal(f) {
   const t = view.me.team, won = f.winner === t, my = f.my;
+  if (!played.final) { played.final = true; if (f.winner === 'draw') audio.fanfare(); else if (won) audio.victory(); else audio.lose(); }
   $('view').innerHTML = `<div class="hero">${face(t, 96)}<h2>${f.winner === 'draw' ? '무승부!' : won ? '🏆 우리 팀 우승!' : '아쉽지만 다음 기회에!'}</h2><p class="mono">${esc(TN('rabbit'))} ${fmt1(f.totals.rabbit)} : ${fmt1(f.totals.cat)} ${esc(TN('cat'))}</p></div>
     ${my ? `<div class="card"><div class="muted small">내 기록</div><dl class="kv"><dt>정답 수</dt><dd>${my.correct} / ${my.played}문항</dd><dt>평균 정답 시간</dt><dd>${my.avgTime == null ? '—' : my.avgTime + '초'}</dd><dt>내가 모은 점수</dt><dd class="mono">${fmt1(my.score)}점</dd></dl></div>` : ''}
     <table class="s"><thead><tr><th>종목</th><th>승리 팀</th></tr></thead><tbody>${f.events.map(e => `<tr><td>${sportById[e.sport].icon} ${esc(e.name)}</td><td>${e.status === 'notPlayed' ? '<span class="muted">미진행</span>' : e.winner === 'draw' ? '무승부' : esc(TN(e.winner))}</td></tr>`).join('')}</tbody></table>`;

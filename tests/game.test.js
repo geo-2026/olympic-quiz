@@ -106,3 +106,25 @@ test('스냅샷 복구', () => {
   assert.equal(g2.phase, 'REVEAL'); assert.equal(g2.state.results.length, 1); assert.equal(g2.next(), 'READY');
   const sv = g2.studentView(ids[0]); assert.equal(sv.phase, 'READY'); assert.equal(sv.ready.no, 2);
 });
+
+test('묶음 종목은 정답·해설만 공개(secret) : 학생 view에 팀 통계·문항 승리 팀 없음, 장면 승패는 done 뒤에만. 문항별 종목은 그대로 공개', () => {
+  const { g, clock, ids } = setup(14, 4);
+  g.startGame();
+  for (let i = 0; i < 3; i++) {
+    const r = playQuestion(g, clock, ids, ['O', 'O', 'X', null]);
+    assert.equal(r.secret, true); assert.ok(r.teams && r.winner);   // 호스트(관리자 코어)는 다 가짐 → 엑셀·집계용
+    const sv = g.studentView(ids[0]).result;
+    assert.equal(sv.secret, true); assert.equal(sv.teams, undefined); assert.equal(sv.winner, undefined);
+    assert.deepEqual(sv.answer, ['O']); assert.ok(sv.my);                 // 정답과 내 결과는 있음
+    assert.deepEqual(Object.keys(sv.bundle).sort(), ['done', 'gauge', 'name', 'of', 'sport']);   // 누적 S 값 없음
+    if (i < 2) g.next();
+  }
+  g.playScene();
+  let sc = g.studentView(ids[0]).scene; assert.equal(sc.done, false); assert.equal(sc.winner, null); assert.equal(sc.result, null);
+  g.sceneDone();
+  sc = g.studentView(ids[0]).scene; assert.equal(sc.done, true); assert.ok(['rabbit', 'cat', 'draw'].includes(sc.winner)); assert.ok(sc.result.rabbit.label);
+  g.next(); g.nextEvent();
+  for (let no = 4; no <= 12; no++) { playQuestion(g, clock, ids, ['O', 'O', 'X', 'X']); if (g.canPlayScene()) { g.playScene(); g.sceneDone(); } g.next(); if (g.phase === 'EVENT_SUMMARY') g.nextEvent(); }
+  const r = playQuestion(g, clock, ids, ['O', 'X', 'X', 'X']);   // 13번 = 양궁(문항별)
+  assert.equal(r.secret, false); const sv = g.studentView(ids[0]).result; assert.ok(sv.teams.rabbit.T >= 0); assert.ok(typeof sv.winner === 'string');
+});

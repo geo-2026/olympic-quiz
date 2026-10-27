@@ -45,6 +45,8 @@ body.team-rabbit{background:#2b1620} body.team-cat{background:#2b1d10}
 .winline{font-family:var(--display);font-size:1.5rem;text-align:center}
 .bundle{background:var(--panel);border-radius:12px;padding:10px 12px}
 .bundle .lab{display:flex;justify-content:space-between;font-family:var(--mono);margin-bottom:6px}
+.card.secret{border:2px dashed var(--led);text-align:center;font-size:1.05rem}
+.gauge.n{height:10px;margin-top:6px}.gauge.n i{background:linear-gradient(90deg,var(--rabbit),var(--cat))}
 .teams2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .teams2 .t{border-radius:12px;padding:10px;text-align:center;border:2px solid var(--line)}
 .teams2 .t.rabbit{border-color:var(--rabbit)} .teams2 .t.cat{border-color:var(--cat)}

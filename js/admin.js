@@ -111,25 +111,26 @@ function refresh() { persist(); render(); broadcast(); }
 function startGame() { try { game.startGame(); preloadScene(); refresh(); } catch (e) { toast(e.message); } }
 function openQuestion() {
   try { game.startQuestion(); } catch (e) { toast(e.message); return; }
+  audio.whistle();
   const rt = game.state.q;
   clearTimeout(closeTimer); closeTimer = setTimeout(() => { if (game.phase === 'QUESTION_OPEN') { game.closeQuestion('time'); onClosed(); refresh(); } }, rt.endsAt + GRACE_MS - Date.now());
   refresh();
 }
 function closeNow() { if (game.phase !== 'QUESTION_OPEN') return; clearTimeout(closeTimer); game.closeQuestion('manual'); onClosed(); refresh(); }
 function onClosed() { clearTimeout(closeTimer); if (timer) timer.stop(); audio.buzzer(); }
-function reveal() { try { game.reveal(); } catch (e) { toast(e.message); return; } const r = game.revealPayload(); if (r.winner !== 'draw') audio.fanfare(); refresh(); }
+function reveal() { try { game.reveal(); } catch (e) { toast(e.message); return; } const r = game.revealPayload(); if (!r.secret && r.winner !== 'draw') audio.fanfare(); else audio.reveal(); refresh(); }
 function playScene() {
   let sc; try { sc = game.playScene(); } catch (e) { toast(e.message); return; }
-  refresh(); ensureScene(sc.sport); sendPlay(sc);
+  refresh(); ensureScene(sc.sport); sendPlay(sc); audio.drumroll();
 }
-function next() { try { game.next(); } catch (e) { toast(e.message); return; } if (game.phase === 'EVENT_SUMMARY') { sendSummary(); audio.fanfare(); } preloadScene(); refresh(); }
+function next() { try { game.next(); } catch (e) { toast(e.message); return; } if (game.phase === 'EVENT_SUMMARY') { sendSummary(); audio.fanfare(); audio.applause(); } preloadScene(); refresh(); }
 function nextEvent() { try { game.nextEvent(); } catch (e) { toast(e.message); return; } if (game.phase === 'FINAL') onFinal(); preloadScene(); refresh(); }
 function endGame() {
   const info = game.endGameInfo();
   modal(`<h3>게임을 종료할까요?</h3><p>남은 문항 ${info.remaining}개가 있어요. 지금 종료하면 최종 결과로 넘어갑니다.</p>${info.inProgress ? `<p class="warnbox">진행 중인 ${info.inProgress}번 문항은 점수에 넣지 않아요.</p>` : ''}`,
     [['취소', 'ghost', () => { }], ['종료', 'danger', () => { clearTimeout(closeTimer); if (timer) timer.stop(); game.endGame(); onFinal(); refresh(); }]]);
 }
-function onFinal() { audio.fanfare(); setTimeout(() => audio.fanfare(), 700); confetti(); }
+function onFinal() { audio.victory(); confetti(); }
 
 /* ───────── 경기 장면(iframe) ───────── */
 function sceneFrame() { let f = $('sceneFrame'); if (!f) { f = document.createElement('iframe'); f.id = 'sceneFrame'; f.title = '경기 장면'; f.allow = 'autoplay'; f.style.display = 'none'; $('stagewrap').appendChild(f); } return f; }
@@ -143,6 +144,7 @@ function preloadScene() { // 종목의 첫 문항을 준비할 때 장면을 미
   if (game.phase !== 'READY' || !game.question) return;
   const info = eventOfQuestion(game.state.events, game.question.no); if (info) ensureScene(info.ev.sport);
 }
+function sendSound() { if (!scene.type) return; try { sceneFrame().contentWindow.postMessage({ type: scene.type, action: 'sound', on: audio.enabled, volume: audio.volume }, '*'); } catch (e) { } }
 function sendPlay(sc) {
   const f = sceneFrame();
   const msg = { type: scene.type, action: 'playResult', mode: sc.mode, index: sc.index, of: sc.of, questions: sc.questions, scores: sc.scores, winner: sc.winner, result: sc.result, finish: sc.finish };
@@ -163,9 +165,9 @@ function sendSummary() {
 window.addEventListener('message', e => {
   const m = e.data; if (!m || typeof m.type !== 'string' || !m.type.endsWith(':event')) return;
   if (m.type !== scene.type + ':event') return;
-  if (m.event === 'ready') { scene.ready = true; if (scene.waiting) { const g = scene.waiting; scene.waiting = null; setTimeout(g, 300); } }
+  if (m.event === 'ready') { scene.ready = true; sendSound(); if (scene.waiting) { const g = scene.waiting; scene.waiting = null; setTimeout(g, 300); } }
   else if (m.event === 'playAccepted') scene.accepted = !!(m.data && m.data.accepted);
-  else if (m.event === 'done') { clearTimeout(scene.fallback); clearTimeout(scene.hard); if (game.phase === 'SCENE') { game.sceneDone(); audio.fanfare(); refresh(); } }
+  else if (m.event === 'done') { clearTimeout(scene.fallback); clearTimeout(scene.hard); if (game.phase === 'SCENE') { game.sceneDone(); audio.cheer(); setTimeout(() => audio.fanfare(), 400); refresh(); } }
 });
 
 /* ───────── 화면 ───────── */
@@ -241,7 +243,8 @@ function renderStage(v) {
     const sc = v.scene;
     let bar = $('scenebar'); if (!bar) { bar = document.createElement('div'); bar.id = 'scenebar'; bar.className = 'scenebar'; $('stagewrap').appendChild(bar); }
     bar.style.display = 'flex';
-    bar.innerHTML = `<span>${sportById[sc.sport].icon} ${esc(sc.eventName)} ${sc.mode === 'bundle' ? `· ${sc.questions.length}문항 합산` : `· ${sc.index}/${sc.of}발 (${sc.questions[0]}번)`}</span><span class="r">${esc(TN('rabbit'))} ${fmt1(sc.scores.rabbit)}</span><span>:</span><span class="c">${fmt1(sc.scores.cat)} ${esc(TN('cat'))}</span><span class="spacer" style="flex:1"></span><span>${sc.done ? '경기 끝 · [다음 문제]를 누르세요' : '경기 중…'}</span>${sc.done ? '' : '<button class="btn sm ghost" id="btnSkipScene">건너뛰기</button>'}`;
+    const hideScore = sc.mode === 'bundle' && !sc.done;   // 묶음 종목 : 합산 점수는 경기가 끝난 뒤에
+    bar.innerHTML = `<span>${sportById[sc.sport].icon} ${esc(sc.eventName)} ${sc.mode === 'bundle' ? `· ${sc.questions.length}문항 합산` : `· ${sc.index}/${sc.of}발 (${sc.questions[0]}번)`}</span>${hideScore ? '<span class="muted">🔒 결과는 경기로 확인!</span>' : `<span class="r">${esc(TN('rabbit'))} ${fmt1(sc.scores.rabbit)}</span><span>:</span><span class="c">${fmt1(sc.scores.cat)} ${esc(TN('cat'))}</span>`}<span class="spacer" style="flex:1"></span><span>${sc.done ? '경기 끝 · [다음 문제]를 누르세요' : '경기 중…'}</span>${sc.done ? '' : '<button class="btn sm ghost" id="btnSkipScene">건너뛰기</button>'}`;
     const b = $('btnSkipScene'); if (b) b.onclick = () => skipScene('장면을 건너뛰었어요.');
     return;
   }
@@ -257,10 +260,10 @@ function questionBody(q) {
   else if (q.hint) body += `<div><span class="hint">정답 글자 수: ${esc(q.hint.label)}</span></div>`;
   return body;
 }
-function bundleGauge(b) {
+function bundleGauge(b) {   // 묶음 종목 : 두 팀의 누적 점수는 감추고 진행(몇 문항 끝났는지)만 보여 준다
   if (!b) return '';
-  return `<div class="bundle"><div class="lab"><span>${sportById[b.sport].icon} ${esc(b.name)} ${esc(b.gauge)} ${b.done}/${b.of}</span><span><span class="r">${esc(TN('rabbit'))} ${fmt1(b.S.rabbit)}</span> : <span class="c">${fmt1(b.S.cat)} ${esc(TN('cat'))}</span></span></div>
-    <div class="two"><div class="gauge r"><i style="width:${Math.min(100, b.S.rabbit / b.max * 100)}%"></i></div><div class="gauge c"><i style="width:${Math.min(100, b.S.cat / b.max * 100)}%"></i></div></div></div>`;
+  return `<div class="bundle secret"><div class="lab"><span>${sportById[b.sport].icon} ${esc(b.name)} ${esc(b.gauge)} ${b.done}/${b.of}</span><span class="muted">🔒 팀 점수·정답률은 경기에서 공개</span></div>
+    <div class="gauge n"><i style="width:${Math.min(100, b.done / b.of * 100)}%"></i></div></div>`;
 }
 function revealHtml(r) {
   const q = r; const label = q.mode === 'bundle' ? `${esc(q.sportName)} 문항 ${q.indexInEvent}/${q.ofInEvent}` : `${esc(q.sportName)} ${q.indexInEvent}/${q.ofInEvent}발`;
@@ -268,8 +271,10 @@ function revealHtml(r) {
     : q.type === 'choice' ? `<div class="opts">${q.options.map((o, i) => `<div class="opt ${q.answer[0] === i + 1 ? 'ans' : ''}"><span class="n">${'①②③④'[i]}</span><span>${esc(o)}</span></div>`).join('')}</div>`
       : `<div class="answerbox">정답 : ${esc(q.answer.join(' / '))}</div>`;
   const win = q.winner === 'draw' ? '<div class="winline">무승부</div>' : `<div class="winline ${q.winner === 'rabbit' ? 'r' : 'c'}">${face(q.winner, 48)} ${esc(TN(q.winner))} 문항 승리!</div>`;
-  return `<div class="stg-title"><h2>${q.no}번 정답</h2><span class="sub">${label}</span></div><div class="qtext" style="font-size:clamp(26px,2.4vw,40px)">${esc(q.text)}</div>${opts}
-    ${q.explanation ? `<div class="expl">${esc(q.explanation)}</div>` : ''}
+  const head = `<div class="stg-title"><h2>${q.no}번 정답</h2><span class="sub">${label}</span></div><div class="qtext" style="font-size:clamp(26px,2.4vw,40px)">${esc(q.text)}</div>${opts}
+    ${q.explanation ? `<div class="expl">${esc(q.explanation)}</div>` : ''}`;
+  if (q.secret) return `${head}<div class="secretbox">${face('rabbit', 40)}${face('cat', 40)} 두 팀의 점수와 정답률은 <b>${sportById[q.sport].icon} ${esc(q.sportName)} 경기</b>에서 공개됩니다${q.isLast ? ' — [경기 보기]를 누르세요!' : ` (문항 ${q.indexInEvent}/${q.ofInEvent})`}</div>${bundleGauge(q.bundle)}`;
+  return `${head}
     <div class="stats">${TEAMS.map(t => { const s = q.teams[t]; return teamBox(t, `<h3>${face(t, 44)} ${esc(TN(t))}</h3><div class="T">${fmt1(s.T)}<span style="font-size:1.2rem;color:var(--muted)"> 점</span></div><div class="meta">정답률 ${s.correct}/${s.total} (${s.correctRate}%) · 평균 정답 시간 ${s.avgTime == null ? '—' : s.avgTime + '초'}</div>`, q.winner === t ? 'win' : ''); }).join('')}</div>
     ${win}${bundleGauge(q.bundle)}`;
 }
@@ -349,8 +354,8 @@ function applySettingsToUI() { const s = game.state.settings; $('setNoLen').valu
 
 /* ───────── 이벤트 연결 ───────── */
 document.querySelectorAll('#panel .tabs button').forEach(b => b.onclick = () => { document.querySelectorAll('#panel .tabs button').forEach(x => x.classList.toggle('active', x === b)); document.querySelectorAll('#panel section').forEach(s => s.classList.toggle('active', s.id === 'tab-' + b.dataset.tab)); });
-$('btnSound').onclick = () => { const on = audio.enable(!audio.enabled); $('btnSound').textContent = on ? '🔊 소리 끄기' : '🔇 소리 켜기'; if (on) audio.pop(); if (timer) timer.audio = on ? audio : null; };
-$('setVol').oninput = e => audio.setVolume(+e.target.value);
+$('btnSound').onclick = () => { const on = audio.enable(!audio.enabled); $('btnSound').textContent = on ? '🔊 소리 끄기' : '🔇 소리 켜기'; if (on) audio.pop(); if (timer) timer.audio = on ? audio : null; sendSound(); };
+$('setVol').oninput = e => { audio.setVolume(+e.target.value); sendSound(); };
 $('btnFull').onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => { }); };
 $('btnPanel').onclick = () => { document.body.classList.toggle('nopanel'); $('btnPanel').textContent = document.body.classList.contains('nopanel') ? '조작판 보이기' : '조작판 숨기기'; };
 $('btnCopyUrl').onclick = () => navigator.clipboard.writeText(joinUrl()).then(() => toast('주소를 복사했어요.'), () => toast('복사하지 못했어요.'));

@@ -170,6 +170,8 @@ html.app .range{aspect-ratio:16/8}
 
 <script src="../lib/three.min.js"></script>
 <script>window.THREE||document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>')</script>
+<script src="../../lib/zzfx.js"></script>
+<script src="../../lib/sfx.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 const REDUCED=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -257,10 +259,11 @@ HILLS.forEach(hx=>{
       b.position.set(hx+sd*8.4,L.y+.9,z);b.rotation.y=sd>0?-Math.PI/2:Math.PI/2;scene.add(b);});}
   // 옆 가림막(광고판 대신 단색 띠)
   [-1,1].forEach(sd=>{const fence=LD.filter((p,i)=>i%4===0&&p.z>20&&p.z<320).map(p=>({z:p.z,y:p.y+.5,yb:p.y}));wall(fence,hx+sd*7.2,new THREE.MeshLambertMaterial({color:sd*hx>0?'#a9c1ee':'#f3c0b9'}));});
-  // 도움닫기 트랙 + 받침 기둥
+  // 도움닫기 트랙(회색 바닥판, 양면 렌더링 — 예전엔 한쪽 면만 그려 카메라 각도에 따라 투명하게 보였음) + 밑판 + 받침 기둥
   const inPts=IN.map(p=>({z:p.z,y:p.y+.05,t:p.s/4}));
-  const trackT=ctex(pxCanvas(16,8,x=>{x.fillStyle='#f7fbff';x.fillRect(0,0,16,8);x.fillStyle='#9fb6d3';x.fillRect(4,0,2,8);x.fillRect(10,0,2,8);}),true);trackT.wrapT=THREE.RepeatWrapping;
-  ribbon(inPts,hx-1.3,hx+1.3,new THREE.MeshLambertMaterial({map:trackT}));
+  const trackT=ctex(pxCanvas(16,8,x=>{x.fillStyle='#8e97a6';x.fillRect(0,0,16,8);x.fillStyle='#c5cdd8';x.fillRect(4,0,2,8);x.fillRect(10,0,2,8);}),true);trackT.wrapT=THREE.RepeatWrapping;
+  ribbon(inPts,hx-1.3,hx+1.3,new THREE.MeshLambertMaterial({map:trackT,side:THREE.DoubleSide}));
+  ribbon(IN.map(p=>({z:p.z,y:p.y-1.4,t:p.s/4})),hx-1.3,hx+1.3,new THREE.MeshLambertMaterial({color:'#6b7483',side:THREE.DoubleSide}));
   const rail=solid('#6b7c99');[-1,1].forEach(sd=>wall(IN.map(p=>({z:p.z,y:p.y+.75,yb:p.y-.2})),hx+sd*1.35,new THREE.MeshLambertMaterial({color:'#c9d4e4'})));
   const under=IN.map(p=>({z:p.z,y:p.y-.2,yb:p.y-1.4}));wall(under,hx-1.3,solid('#8b98ad'));wall(under,hx+1.3,solid('#8b98ad'));
   for(let s=8;s<=IN_LEN;s+=7){const p=inrunAt(s),ty=terrainY(p.z),h=p.y-1.4-ty;if(h>.5)[-1,1].forEach(sd=>box(.35,h,.35,rail,hx+sd*1.1,ty+h/2,p.z));}
@@ -376,7 +379,7 @@ function nextRound(qual){
   emit('round',{round,rounds:ROUNDS});setStatus();
   // 출발 신호: 빨강 → 노랑 → 초록
   const L=$('light'),dots=L.querySelectorAll('i');L.classList.add('on');dots.forEach(d=>d.className='');
-  const step=(i)=>{dots.forEach(d=>d.className='');if(i<3)dots[i].className=['r','y','g'][i];
+  const step=(i)=>{dots.forEach(d=>d.className='');if(i<3){dots[i].className=['r','y','g'][i];SFX.play(i<2?'beep':'go');}
     if(i<2)setTimeout(()=>step(i+1),600);else{const now=performance.now()/1000;PL.forEach(p=>{p.phase='inrun';p.t0=now+Math.random()*.6;});setTimeout(()=>L.classList.remove('on'),700);}};
   step(0);return true;
 }
@@ -406,6 +409,7 @@ function appFinish(){
   const [a,b]=PL;winner=appWinner==='rabbit'?a:appWinner==='cat'?b:null;
   const title=winner?`${winner.name} 승리!`:'무승부!';
   showBanner(title,`${a.name} ${a.J.D.toFixed(1)}m : ${b.J.D.toFixed(1)}m ${b.name}`,true);
+  if(winner)SFX.play('cheerShort');
   busy=false;setStatus();
   setTimeout(()=>emit('done',{index:1,distances:{rabbit:a.J.D,cat:b.J.D}}),1600);
 }
@@ -471,7 +475,7 @@ function stepJumper(p,t,dt){
     if(t<p.t0){w={crouch:.6,stand:.4};}
     else{const g=inrunAt(p.s);const drop=inrunAt(IN_LEN).y-g.y;p.v=Math.sqrt(Math.max(.25,2*9.81*.95*drop));
       p.s-=p.v*dt*(REDUCED?2:1.25);w={crouch:1};
-      if(p.s<=0){p.s=0;p.phase='flight';p.tf=t;p.trail=[{z:0,y:0}];emit('takeoff',{round,player:p.k,timing:Math.round(J.err)});}
+      if(p.s<=0){p.s=0;p.phase='flight';p.tf=t;p.trail=[{z:0,y:0}];emit('takeoff',{round,player:p.k,timing:Math.round(J.err)});SFX.play('swoosh');}
       const c=inrunAt(Math.max(0,p.s));p.pos.set(p.hx,c.y,c.z);p.pitch=c.a;}
   }
   else if(p.phase==='flight'){
@@ -480,7 +484,7 @@ function stepJumper(p,t,dt){
     const vy=J.vy0-J.g*tt,gam=Math.atan2(-vy,J.vz);p.pitch=gam-.5;p.v=Math.hypot(J.vz,vy);
     p.bal=J.bal*(.6*Math.sin(2.1*t+p.k.length)+.4*Math.sin(5.3*t+1.7));
     const k=Math.min(1,(t-p.tf)/.45);w={crouch:1-k,flight:k};spread=k;roll=.35*k+p.bal*.12;
-    if(tt>=J.T){p.phase='land';p.tl=t;p.s=landAt(J.zL).arc;p.v=Math.hypot(J.vz,vy)*.92;J.path=p.trail.slice();emit('landing',{round,player:p.k,distance:J.D});}
+    if(tt>=J.T){p.phase='land';p.tl=t;p.s=landAt(J.zL).arc;p.v=Math.hypot(J.vz,vy)*.92;J.path=p.trail.slice();emit('landing',{round,player:p.k,distance:J.D});SFX.play('thud',.6);}
   }
   else if(p.phase==='land'||p.phase==='outrun'){
     const z=zForArc(p.s),L=landAt(z);
@@ -547,7 +551,7 @@ function playResult(m){
   const q={};
   PL.forEach(p=>{const r=(m.result&&m.result[p.k])||{value:110};p.forcedD=+r.value;p.forcedFail=!!r.fail;q[p.k]=r.fail?.1:.9;});
   const sc=m.scores||{rabbit:0,cat:0};
-  showBanner(`${(m.questions||[]).length||3}문항 합산`,`${PL[0].name} ${(+sc.rabbit||0).toFixed(1)} : ${(+sc.cat||0).toFixed(1)} ${PL[1].name}`);
+  showBanner(`${(m.questions||[]).length||3}문항 합산 결과는?`,`${PL[0].name} 대 ${PL[1].name} · 비행 거리로 확인!`);   // 점수·승패는 착지해야 공개
   setTimeout(()=>nextRound(q),1500);return true;
 }
 window.SkiJumpDuel={
@@ -562,13 +566,14 @@ window.addEventListener('message',e=>{const m=e.data;if(!m||m.type!=='skiJumpDue
   if(m.action==='jump')emit('jumpAccepted',{accepted:SkiJumpDuel.jump(m.quality)!==false});
   else if(m.action==='playResult')emit('playAccepted',{accepted:playResult(m)});
   else if(m.action==='eventSummary')showBanner(m.title||'',m.text||'',true);
+  else if(m.action==='sound')SFX.set(!!m.on,m.volume);
   else if(m.action==='reset')SkiJumpDuel.reset(m.rounds);
   else if(m.action==='auto')SkiJumpDuel.setAuto(m.on);
   else if(m.action==='names')SkiJumpDuel.setNames(m.names&&m.names[0],m.names&&m.names[1]);
   else if(m.action==='state')emit('state',SkiJumpDuel.getState());});
 if(Q.get('auto')==='0'||APP){autoOn=false;$('auto').setAttribute('aria-pressed','false');}
 if(Q.get('ui')==='min'||APP)document.documentElement.classList.add('ui-min');
-if(APP)document.documentElement.classList.add('app');
+if(APP)document.documentElement.classList.add('app');else SFX.set(true,.6);
 resetAll();
 if(Q.get('names')){const n=Q.get('names').split(',');setNames(n[0],n[1]);}
 requestAnimationFrame(loop);

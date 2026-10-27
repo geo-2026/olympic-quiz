@@ -53,8 +53,10 @@ npm start            # http://localhost:3000  (교사 /admin.html · 학생 /pla
 2. [문항] 탭 : 엑셀 업로드([엑셀 양식 내려받기]로 양식 확인) 또는 [예시 문항 불러오기] → 사용할 문항 수·유형 섞기 선택 → [이 문항으로 확정]. 종목 배정 미리보기가 함께 나옵니다.
 3. 학생은 QR → 학번(기본 5자리)·이름 입력 → 인원이 적은 팀에 자동 배정. [학생·팀] 탭에서 ⇄로 옮기거나 다시 섞을 수 있습니다(시작 전).
 4. [게임 시작] → 문항마다 [문제 시작] → (모두 제출하면 자동 마감 / [지금 마감]) → [정답 공개] → 묶음 종목은 3번째 문항 뒤, 문항별 종목은 문항마다 [경기 보기] → [다음 문제]. 종목이 끝나면 전환 화면(점수 차이) → [다음 종목 시작].
+   - **묶음 종목(줄다리기·스키점프·스켈레톤·멀리뛰기)의 [정답 공개]는 정답·해설만 보여 줍니다.** 두 팀의 점수·정답률·문항 승리 팀은 감춰 두었다가 경기 장면에서 드러납니다(학생 화면도 같음. 학생은 자기 ○× 와 점수만 봄). 양궁·사격(문항별 종목)은 예전처럼 바로 공개합니다.
 5. 마지막 종목 뒤 최종 결과 → [결과 엑셀 내려받기](요약·학생별·문항별·종목별). [게임 종료]는 언제든 최종 결과로 이동(진행 중 문항 제외, 부분 진행 종목 표시).
 6. 스페이스 키 = 지금 눌러야 할 진행 버튼.
+7. 효과음 : 교사 화면 [🔊 소리 켜기] 하나로 관리자 화면과 경기 장면의 소리가 함께 켜집니다(학생 화면은 각자 🔇 버튼). 음량은 [설정] 탭 슬라이더. 호루라기(문제 시작)·마감 버저·정답 공개·드럼롤(경기 시작)·환호·박수·팬파레, 장면 안의 영차·활시위·총성·썰매·착지 소리 등. 음원 파일 없이 `lib/zzfx.js`(ZzFX, MIT)로 그 자리에서 합성하며 프리셋은 `lib/sfx.js`에 있습니다.
 
 ## 종목·점수 규칙 (명세서 1·8·9장 그대로)
 
@@ -71,7 +73,7 @@ olympic-quiz/
 ├─ server.js · render.yaml                  # Express + Socket.IO 중계 서버, Render Blueprint
 ├─ js/       admin.js play.js net.js(socket|peer|local) config.js(RELAY_URL) audio.js timer.js faces.js excel.js sampleQuestions.js
 ├─ css/      common.css admin.css play.css
-├─ lib/      socket.io.min.js peerjs.min.js xlsx.full.min.js qrcode.min.js
+├─ lib/      socket.io.min.js peerjs.min.js xlsx.full.min.js qrcode.min.js zzfx.js(ZzFX 1.4.0, MIT) sfx.js(효과음 프리셋) LICENSE-zzfx.txt
 ├─ scenes/   lib/(three.min.js r128, duel-common.js, duel.css) tug/ skijump/ skeleton/ longjump/ archery/ pistol/
 ├─ questions/  예시 문항 엑셀
 ├─ tests/    *.test.js           # npm test
@@ -82,12 +84,19 @@ olympic-quiz/
 ## 경기 장면
 
 - 양궁·사격·스키점프는 기존 장면 키트(three.js r128)에 `?mode=app`(결과 재생 모드)을 추가한 것, 줄다리기·스켈레톤·멀리뛰기는 같은 블록 캐릭터로 새로 만든 것입니다.
-- 모든 장면은 `postMessage({type:'<장면>', action:'playResult', ...})`를 받아 정해진 기록을 재생하고, 끝나면 `{type:'<장면>:event', event:'done'}`을 보냅니다. 각 장면을 직접 열면 무작위 결과로 시연됩니다.
+- 모든 장면은 `postMessage({type:'<장면>', action:'playResult', ...})`를 받아 정해진 기록을 재생하고, 끝나면 `{type:'<장면>:event', event:'done'}`을 보냅니다. 각 장면을 직접 열면 무작위 결과로 시연됩니다. `action:'sound'`(on, volume)로 효과음을 켜고 끕니다(관리자 화면이 자동으로 보냄).
+- 묶음 종목 장면은 시작 배너에 점수를 쓰지 않고(“3문항 합산 결과는?”) 경기가 진행되면서 결과가 드러납니다. 줄다리기는 두 팀이 마주 보고 당기며, 스키점프 도움닫기 바닥은 회색 판, 스켈레톤은 머리를 앞으로 하고 트랙이 390m(30% 연장), 멀리뛰기는 관중석 없이 도약 뒤 슬로 모션, 사격은 앱 모드에서 선수와 표적이 함께 보이는 넓은 시점(16:8)을 씁니다.
+
+## 효과음 (ZzFX)
+
+- GitHub에서 널리 쓰이는 공개 효과음 합성기 **ZzFX**(Frank Force, MIT, https://github.com/KilledByAPixel/ZzFX)를 `lib/zzfx.js`로 넣었습니다(원본 v1.4.0을 전역 객체·지연 AudioContext·마스터 음량만 손봄). 저작권 음원 파일이 없어 배포·공유가 자유롭습니다.
+- 소리 하나는 숫자 20개로 정의됩니다(`lib/sfx.js`의 `P` 표). 바꾸고 싶으면 https://killedbyapixel.github.io/ZzFX/ 에서 소리를 만들어 그 배열을 붙여 넣으면 됩니다. 관리자·학생 화면은 `js/audio.js`의 `GameAudio`를 거쳐 재생하고, 장면 페이지는 `SFX.play('이름')`을 직접 부릅니다.
+- `tools/`의 e2e나 장면 헤드리스 검사는 소리 없이도 돌아갑니다(SFX가 꺼져 있으면 아무것도 재생하지 않음).
 
 ## 테스트
 
 ```
-npm test                                   # 단위 테스트 22개 (채점·종목·기록·엑셀 변환·상태 전이)
+npm test                                   # 단위 테스트 23개 (채점·종목·기록·엑셀 변환·상태 전이·묶음 종목 비공개)
 npm start                                  # 서버 중계 경로 검증용 (http://127.0.0.1:3000)
 cd tools ; node e2e-test.cjs http://127.0.0.1:3000/ --net=socket   # 관리자 1 + 학생 3 통합, Socket.IO 중계 (puppeteer-core 필요, NODE_PATH 설정은 tools/README.md)
 python -m http.server 8766 --bind 127.0.0.1

@@ -143,6 +143,7 @@ export class Game {
     const info = eventOfQuestion(this.s.events, q.no);
     return { questionId: q.id, no: q.no, type: q.type, text: q.text, options: q.options, answer: q.answers, explanation: q.explanation, teams: r.teams, winner: r.winner,
       sport: info.ev.sport, sportName: info.ev.name, mode: info.ev.mode, indexInEvent: info.indexInEvent, ofInEvent: info.ofInEvent, isLast: info.isLast,
+      secret: info.ev.mode === 'bundle',   // 묶음 종목(줄다리기·스키점프·스켈레톤·멀리뛰기)은 정답·해설만 공개하고 팀 점수·정답률·문항 승리 팀은 경기 장면에서 드러낸다
       bundle: this.bundleProgress(q.no), closedReason: r.closedReason, total: this.s.questions.length };
   }
   canPlayScene() {
@@ -264,8 +265,12 @@ export class Game {
     if (s.phase === 'REVEAL' || s.phase === 'SCENE') {
       const r = s.q.result, me = r.perStudent[st.id];
       v.result = { ...this.revealPayload(), my: me ? { submitted: me.submitted, correct: me.correct, score: me.score, value: me.value } : null };
+      if (v.result.secret) { delete v.result.teams; delete v.result.winner; if (v.result.bundle) v.result.bundle = { sport: v.result.bundle.sport, name: v.result.bundle.name, gauge: v.result.bundle.gauge, done: v.result.bundle.done, of: v.result.bundle.of }; }
     }
-    if (s.phase === 'SCENE') v.scene = { sport: s.scene.sport, eventName: s.scene.eventName, mode: s.scene.mode, index: s.scene.index, of: s.scene.of, winner: s.scene.winner, scores: s.scene.scores, result: s.scene.result, done: s.scene.done };
+    if (s.phase === 'SCENE') {
+      const sc = s.scene, show = sc.done;   // 승패·기록은 앞 화면의 경기가 끝난 뒤에 보여 준다
+      v.scene = { sport: sc.sport, eventName: sc.eventName, mode: sc.mode, index: sc.index, of: sc.of, done: sc.done, winner: show ? sc.winner : null, scores: show ? sc.scores : null, result: show ? sc.result : null };
+    }
     if (s.phase === 'EVENT_SUMMARY') v.summary = s.summary;
     if (s.phase === 'FINAL') { const f = s.final; const mine = f.students.find(x => x.id === st.id); v.final = { totals: f.totals, winner: f.winner, diff: f.diff, medals: f.medals, played: f.played, events: f.events.map(e => ({ sport: e.sport, name: e.name, winner: e.winner, status: e.status })), my: mine ? { correct: mine.correct, played: mine.played, score: mine.score, avgTime: mine.avgTime } : null }; }
     return v;
