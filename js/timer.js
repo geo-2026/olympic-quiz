@@ -9,7 +9,7 @@ export class Timer {
   now() { return Date.now() + this.offset; }
   start(startedAt, endsAt) {
     this.stop(); this.startedAt = startedAt; this.endsAt = endsAt; this.lastSec = null; this.ended = false;
-    if (this.audio) { this.audio.setTempo(90); this.audio.startMusic(); }
+    if (this.audio) { this.audio.setTempo(90); this.audio.startMusic(this.opts.qtype); }
     const tick = () => { this.render(); if (!this.ended) this.raf = requestAnimationFrame(tick); };
     tick();
   }

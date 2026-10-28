@@ -83,7 +83,7 @@ function renderQuestion(v) {
   $('view').innerHTML = body;
   $('view').querySelectorAll('.abtn').forEach(b => b.onclick = () => submit(b.dataset.v, b));
   const si = $('shortIn'); if (si) { si.focus(); si.addEventListener('keydown', e => { if (e.key === 'Enter') submit(si.value); }); $('shortGo').onclick = () => submit(si.value); }
-  if (open) { if (!timer || timer.startedAt !== q.startedAt) { timer = new Timer({ num: $('tnum'), bar: $('tbar'), root: document.body, count: $('countdown') }, audio.enabled ? audio : null, { vibrate: true, submitted: () => draft.locked, onEnd: () => { if (!draft.locked) { draft.locked = true; render(); } } }); timer.sync(q.serverNow); timer.start(q.startedAt, q.endsAt); } else { timer.el.num = $('tnum'); timer.el.bar = $('tbar'); } }
+  if (open) { if (!timer || timer.startedAt !== q.startedAt) { timer = new Timer({ num: $('tnum'), bar: $('tbar'), root: document.body, count: $('countdown') }, audio.enabled ? audio : null, { vibrate: true, qtype: q.type, submitted: () => draft.locked, onEnd: () => { if (!draft.locked) { draft.locked = true; render(); } } }); timer.sync(q.serverNow); timer.start(q.startedAt, q.endsAt); } else { timer.el.num = $('tnum'); timer.el.bar = $('tbar'); } }
   else stopTimer();
 }
 function fmtAnswer(q, v) { if (v == null) return '—'; if (q.type === 'choice') return '①②③④'[Number(v) - 1] || v; return v; }

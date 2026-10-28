@@ -229,7 +229,7 @@ function renderStage(v) {
       <div class="subm">${TEAMS.map(t => teamBox(t, `${face(t, 44)}<span>${esc(TN(t))}</span><b>${v.progress[t].submitted}</b>/ ${v.progress[t].total} 제출`)).join('')}</div>`;
     if (open) {
       if (!timer || timer.startedAt !== q.startedAt) {
-        timer = new Timer({ num: $('tnum'), bar: $('tbar'), root: document.body, count: $('countdown') }, audio.enabled ? audio : null, { onEnd: () => { } });
+        timer = new Timer({ num: $('tnum'), bar: $('tbar'), root: document.body, count: $('countdown') }, audio.enabled ? audio : null, { onEnd: () => { }, qtype: v.question.type });
         timer.sync(q.serverNow); timer.start(q.startedAt, q.endsAt);
       } else { timer.el.num = $('tnum'); timer.el.bar = $('tbar'); }
     } else { if (timer) { timer.stop(); timer = null; } document.body.classList.remove('t-green', 't-yellow', 't-orange', 't-red', 't-last3', 't-over'); $('countdown').textContent = ''; }
