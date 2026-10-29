@@ -369,7 +369,7 @@ function release(p,t){
   if(APP&&p.forced) hit=forcedHit(p.forced);               // 앱 모드 : 부모 창이 정한 링
   else hit={x:a.x+wind*DRIFT+gauss()*1.4,y:a.y+gauss()*1.4};
   Object.assign(hit,scoreOf(hit.x,hit.y));
-  p.phase='fly';p.t0=t;SFX.play('twang');
+  p.phase='fly';p.t0=t;SFX.play('archery_shoot');SFX.play('archery_fly');
   const m=p.model;m.arrow.visible=false;
   const fl=makeArrow(p.accent);scene.add(fl);
   const start=new THREE.Vector3();m.arrow.getWorldPosition(start);
@@ -380,7 +380,7 @@ function release(p,t){
   const pos=t=>V(start.x+(endO.x-start.x)*t,start.y+(endO.y-start.y)*t+4*peak*t*(1-t),start.z+(endO.z-start.z)*t);
   p.flying=fl;
   tween(dur,k=>{fl.position.copy(pos(k));fl.lookAt(pos(Math.min(1,k+.02)).add(dir.clone().multiplyScalar(k>=.98?1:0)));},
-    ()=>{fl.position.copy(endO);fl.lookAt(tipW);p.face.attach(fl);p.stuck.push(fl);p.flying=null;SFX.play('arrowHit');
+    ()=>{fl.position.copy(endO);fl.lookAt(tipW);p.face.attach(fl);p.stuck.push(fl);p.flying=null;SFX.play('archery_hit');
       (shootoff?(p.so=hit):cur(p).push(hit));p.last=hit;paintFace(p);updateCard(p,true);renderBoard();
       emit('shot',{set,shootoff,player:p.k,name:p.name,score:hit.v,x:hit.x,label:hit.label,setTotal:sum(cur(p))});
       p.phase='follow';p.t0=performance.now()/1000;camHold={p,until:performance.now()+1300};
@@ -421,7 +421,7 @@ function appAfterPair(){
   arrowsInSet++;P.forEach(p=>updateCard(p));hud();setStatus();busy=false;
   const [a,b]=P,wn=appWinner==='draw'?'무승부':`${(appWinner==='rabbit'?a:b).name} 승`;
   showBanner(`${appIdx}/${appOf}발 · ${wn}`,`${a.name} ${a.last.label} : ${b.last.label} ${b.name} · 합계 ${sum(a.sets[0])} : ${sum(b.sets[0])}`);
-  if(appWinner!=='draw')SFX.play('cheerShort',.8);
+  // 양궁은 발별 승리 효과음을 재생하지 않는다(17절). 종목 끝 EVENT_SUMMARY 때 fanfare 1회만 울린다.
   setTimeout(()=>emit('done',{index:appIdx,totals:{rabbit:sum(a.sets[0]),cat:sum(b.sets[0])}}),1500);
 }
 function finish(w){

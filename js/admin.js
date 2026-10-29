@@ -123,7 +123,16 @@ function playScene() {
   let sc; try { sc = game.playScene(); } catch (e) { toast(e.message); return; }
   refresh(); ensureScene(sc.sport); sendPlay(sc); audio.drumroll();
 }
-function next() { try { game.next(); } catch (e) { toast(e.message); return; } if (game.phase === 'EVENT_SUMMARY') { sendSummary(); audio.fanfare(); audio.applause(); } preloadScene(); refresh(); }
+function next() {
+  try { game.next(); } catch (e) { toast(e.message); return; }
+  if (game.phase === 'EVENT_SUMMARY') {
+    sendSummary();
+    // 사격은 승리 효과음을 재생하지 않는다(17절). 양궁은 종목 끝 fanfare 1회만 울린다(발별 scene에서는 재생 X — scene 쪽 수정).
+    const sport = game.state.summary && game.state.summary.event && game.state.summary.event.sport;
+    if (sport !== 'pistol') { audio.fanfare(); audio.applause(); }
+  }
+  preloadScene(); refresh();
+}
 function nextEvent() { try { game.nextEvent(); } catch (e) { toast(e.message); return; } if (game.phase === 'FINAL') onFinal(); preloadScene(); refresh(); }
 function endGame() {
   const info = game.endGameInfo();
@@ -167,7 +176,16 @@ window.addEventListener('message', e => {
   if (m.type !== scene.type + ':event') return;
   if (m.event === 'ready') { scene.ready = true; sendSound(); if (scene.waiting) { const g = scene.waiting; scene.waiting = null; setTimeout(g, 300); } }
   else if (m.event === 'playAccepted') scene.accepted = !!(m.data && m.data.accepted);
-  else if (m.event === 'done') { clearTimeout(scene.fallback); clearTimeout(scene.hard); if (game.phase === 'SCENE') { game.sceneDone(); audio.cheer(); setTimeout(() => audio.fanfare(), 400); refresh(); } }
+  else if (m.event === 'done') {
+    clearTimeout(scene.fallback); clearTimeout(scene.hard);
+    if (game.phase === 'SCENE') {
+      game.sceneDone();
+      // 묶음 종목(bundle)만 scene 종료 환호를 재생. 양궁(perShot)·사격(perQuestion)은 scene에서 승리 효과음을 울리지 않는다(17절).
+      const sc = game.state.scene;
+      if (sc && sc.mode === 'bundle') { audio.cheer(); setTimeout(() => audio.fanfare(), 400); }
+      refresh();
+    }
+  }
 });
 
 /* ───────── 화면 ───────── */

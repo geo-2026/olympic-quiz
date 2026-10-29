@@ -82,7 +82,7 @@ function playResult(m){
   bars(0,0);
   B.show(`${play.questions.length||3}문항 합산 결과는?`,`${T.rabbit.name} 대 ${T.cat.name} · 줄을 당겨 확인!`);   // 점수는 당기면서 드러난다
   status('준비 … 당겨!');
-  setTimeout(()=>{t0=performance.now();play.phase='pull';play.nextHeave=0;status('당기는 중');SFX.play('whistle');},1600);return true;
+  setTimeout(()=>{t0=performance.now();play.phase='pull';play.nextHeave=0;status('당기는 중');SFX.play('tug_pull');},1600);return true;
 }
 const DUR=4.5;
 function step(t,dt){
@@ -94,7 +94,7 @@ function step(t,dt){
     const wob=(REDUCED?0:1)*.12*Math.sin(el*9)*(1-u)*(play.winner==='draw'?1.6:1);
     offset=-play.pull*e+wob;world.position.x=offset;
     const r=+scores.rabbit,c=+scores.cat;bars(r*DC.smooth(u*1.4),c*DC.smooth(u*1.4));
-    if(el>=play.nextHeave){play.nextHeave+=.55;SFX.play('heave',.8);if(Math.random()<.5)SFX.play('creak',.6);}   // 영차 + 줄 삐걱
+    if(el>=play.nextHeave){play.nextHeave+=.55;SFX.play('tug_pull');}   // 당기는 소리 반복
     $('hm').innerHTML=`줄 표시 <b>${(-offset>=0?'+':'')+(-offset).toFixed(2)}m</b> <span style="opacity:.8">(${T.rabbit.name} 쪽 +)</span>`;
     Object.values(T).forEach(team=>team.members.forEach((f,i)=>{
       const losing=play.winner!=='draw'&&play.winner!==team.k,fail=play.fail[team.k];
@@ -109,9 +109,8 @@ function step(t,dt){
       else if(wn)B.show(`${wn.name} 승리!`,`줄을 ${Math.abs(play.pull).toFixed(2)}m 끌어왔어요 · ${T.rabbit.name} ${(+scores.rabbit).toFixed(1)} : ${(+scores.cat).toFixed(1)} ${T.cat.name}`,true);
       else B.show('무승부!','줄이 제자리 · 두 팀 점수가 같아요',true);
       status(wn?`${wn.name} 승리`:'무승부');
-      if(wn)SFX.play('cheerShort');
-      // 진 팀 중 정답자 0명(fail)이면 넘어짐
-      Object.values(T).forEach(team=>{if(play.fail[team.k]&&wn&&wn!==team){team.members.forEach(f=>{f.fall=true;});SFX.play('thud');}});
+      // 승리 효과음·넘어짐 효과음은 BGM 폴더에 없어서 재생하지 않는다(17절)
+      Object.values(T).forEach(team=>{if(play.fail[team.k]&&wn&&wn!==team){team.members.forEach(f=>{f.fall=true;});}});
       setTimeout(()=>{bridge.emit('done',{index:1,pull:play.pull,winner:play.winner});busy=false;if(auto)setTimeout(demo,4000);},1800);}
   } else if(play.phase==='end'){
     const e=DC.clamp((t-play.tEnd)/600,0,1);

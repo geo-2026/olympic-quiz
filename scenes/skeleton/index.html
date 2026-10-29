@@ -102,8 +102,8 @@ function playResult(m){
   Object.values(PL).forEach(p=>{p.z=-6;p.prog=0;place(p,p.z,0);hud(p,0,0);});
   B.show(`${play.questions.length||3}문항 합산 결과는?`,`${PL.rabbit.name} 대 ${PL.cat.name} · 결승선에서 확인!`);   // 점수·승패는 주행이 끝나야 공개
   $('status').textContent='출발 준비';
-  play.nextSlide=0;SFX.play('beep');setTimeout(()=>SFX.play('beep'),600);
-  setTimeout(()=>{t0=performance.now();play.phase='run';$('status').textContent='주행 중';SFX.play('go');},1700);return true;
+  play.nextSlide=0;SFX.play('skeleton_start');
+  setTimeout(()=>{t0=performance.now();play.phase='run';$('status').textContent='주행 중';SFX.play('skeleton_glide');},1700);return true;
 }
 function step(ms){
   if(!play||play.phase!=='run'&&play.phase!=='end')return;
@@ -116,16 +116,16 @@ function step(ms){
     const fail=play.fail[p.k]&&!REDUCED;
     const wob=fail?Math.sin(el*5.5+p.lane)*1.3*(u<1?1:0):(REDUCED?0:Math.sin(el*2.2+p.lane)*.15);
     place(p,z,wob);
-    if(fail){p.m.body.rotation.z=Math.sin(el*5.5+p.lane)*.25;if(Math.abs(wob)>1.2&&!p.hitT){p.hitT=ms;spark(p);SFX.play('clang',.8);}if(p.hitT&&ms-p.hitT>400)p.hitT=0;}
+    if(fail){p.m.body.rotation.z=Math.sin(el*5.5+p.lane)*.25;if(Math.abs(wob)>1.2&&!p.hitT){p.hitT=ms;spark(p);}if(p.hitT&&ms-p.hitT>400)p.hitT=0;}
     else p.m.body.rotation.z=(REDUCED?0:Math.sin(el*2.2+p.lane)*.05);
     const shown=Math.min(play.t[p.k],u*play.t[p.k]);hud(p,shown,u<1?spd:0);
-    if(u>=1&&!play.done[p.k]){play.done[p.k]=true;hud(p,play.t[p.k],0);SFX.play('ping',.7);}
+    if(u>=1&&!play.done[p.k]){play.done[p.k]=true;hud(p,play.t[p.k],0);}
   });
-  if(play.phase==='run'&&el>=play.nextSlide){play.nextSlide+=.3;SFX.play('slide',.5);}   // 얼음 미끄러지는 소리
+  if(play.phase==='run'&&el>=play.nextSlide){play.nextSlide+=.3;SFX.play('skeleton_glide');}   // 활주 소리 반복
   if(play.phase==='run'&&play.done.rabbit&&play.done.cat){play.phase='end';
     const w=play.winner,wn=w==='draw'?null:PL[w];
     B.show(wn?`${wn.name} 승리!`:'무승부!',`${PL.rabbit.name} ${play.t.rabbit.toFixed(2)}초 : ${play.t.cat.toFixed(2)}초 ${PL.cat.name}`,true);
-    $('status').textContent=wn?`${wn.name} 승리`:'무승부';if(wn)SFX.play('cheerShort');
+    $('status').textContent=wn?`${wn.name} 승리`:'무승부';   // 승리 효과음은 재생하지 않음(17절)
     setTimeout(()=>{bridge.emit('done',{index:1,times:play.t,winner:play.winner});busy=false;if(auto)setTimeout(demo,4000);},1800);}
 }
 const sparks=[];

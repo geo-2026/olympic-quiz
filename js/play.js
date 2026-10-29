@@ -124,14 +124,11 @@ function sceneHtml(s, t) {   // 승패·기록은 앞 화면 경기가 끝난 �
   return `<div class="scene card"><div class="muted">📺 앞 화면에서 경기를 보세요</div>${title}<div class="big ${s.winner === 'rabbit' ? 'r' : s.winner === 'cat' ? 'c' : ''}">${w}</div><div class="mono">${rec}</div></div>`;
 }
 function renderSummary(s) {
-  const e = s.event, w = e.winner === 'draw' ? '무승부' : `${esc(TN(e.winner))} 승리`;
-  if (played.summary !== e.sport) { played.summary = e.sport; audio.applause(); }
-  const detail = e.mode === 'bundle' ? `${e.played}문항 합산 ${fmt1(e.Tsum.rabbit)} : ${fmt1(e.Tsum.cat)}` : `${e.wins.rabbit}승 ${e.wins.cat}패`;
-  $('view').innerHTML = `<div class="hero"><h2>🥇 ${sportById[e.sport].icon} ${esc(e.name)}</h2><p class="${e.winner === 'rabbit' ? 'r' : e.winner === 'cat' ? 'c' : ''}" style="font-size:1.4rem;font-weight:700">${w}</p><p class="mono">${detail}</p></div>
-    <div class="teams2">${['rabbit', 'cat'].map(k => `<div class="t ${k}">${face(k, 32)}<div>${esc(TN(k))}</div><b>${fmt1(s.totals[k])}</b></div>`).join('')}</div>
-    <div class="diffline">${s.leader === 'draw' ? '동점이에요!' : `▶ ${esc(TN(s.leader))}이 ${fmt1(s.diff)}점 앞서 있어요`}</div>
-    <div class="card"><div class="muted small">종목 메달</div><div class="medals"><span class="r">${s.medals.rabbit.map(x => sportById[x].icon).join(' ') || '—'}</span><span class="c">${s.medals.cat.map(x => sportById[x].icon).join(' ') || '—'}</span></div></div>
-    ${s.next ? `<div class="card">다음 종목: ${sportById[s.next.sport].icon} <b>${esc(s.next.name)}</b> (${s.next.from}~${s.next.to}번)</div>` : '<div class="card">모든 종목이 끝났어요. 최종 결과를 기다려요.</div>'}`;
+  // 학생 요약 : 종료된 종목 이름과 다음 종목만. 팀 점수·메달·리더·승리 팀은 교사 앞 화면에서 공개(17절).
+  const e = s.event;
+  if (played.summary !== e.sport) { played.summary = e.sport; }
+  $('view').innerHTML = `<div class="hero">${face(view.me.team, 72)}<h2>🥇 ${sportById[e.sport].icon} ${esc(e.name)} 종료</h2><p class="muted">📺 결과는 앞 화면에서 확인하세요</p></div>
+    ${s.next ? `<div class="card">다음 종목 : ${sportById[s.next.sport].icon} <b>${esc(s.next.name)}</b></div>` : '<div class="card">모든 종목이 끝났어요. 최종 결과를 기다려요.</div>'}`;
 }
 function renderFinal(f) {
   const t = view.me.team, won = f.winner === t, my = f.my;

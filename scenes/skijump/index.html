@@ -378,7 +378,7 @@ function nextRound(qual){
   emit('round',{round,rounds:ROUNDS});setStatus();
   // 출발 신호: 빨강 → 노랑 → 초록
   const L=$('light'),dots=L.querySelectorAll('i');L.classList.add('on');dots.forEach(d=>d.className='');
-  const step=(i)=>{dots.forEach(d=>d.className='');if(i<3){dots[i].className=['r','y','g'][i];SFX.play(i<2?'beep':'go');}
+  const step=(i)=>{dots.forEach(d=>d.className='');if(i<3){dots[i].className=['r','y','g'][i];SFX.play('skijump_signal');}
     if(i<2)setTimeout(()=>step(i+1),600);else{const now=performance.now()/1000;PL.forEach(p=>{p.phase='inrun';p.t0=now+Math.random()*.6;});setTimeout(()=>L.classList.remove('on'),700);}};
   step(0);return true;
 }
@@ -408,7 +408,7 @@ function appFinish(){
   const [a,b]=PL;winner=appWinner==='rabbit'?a:appWinner==='cat'?b:null;
   const title=winner?`${winner.name} 승리!`:'무승부!';
   showBanner(title,`${a.name} ${a.J.D.toFixed(1)}m : ${b.J.D.toFixed(1)}m ${b.name}`,true);
-  if(winner)SFX.play('cheerShort');
+  // 승리 효과음은 쓰지 않는다(17절). 종목 끝 EVENT_SUMMARY의 fanfare로 대신.
   busy=false;setStatus();
   setTimeout(()=>emit('done',{index:1,distances:{rabbit:a.J.D,cat:b.J.D}}),1600);
 }
@@ -474,7 +474,7 @@ function stepJumper(p,t,dt){
     if(t<p.t0){w={crouch:.6,stand:.4};}
     else{const g=inrunAt(p.s);const drop=inrunAt(IN_LEN).y-g.y;p.v=Math.sqrt(Math.max(.25,2*9.81*.95*drop));
       p.s-=p.v*dt*(REDUCED?2:1.25);w={crouch:1};
-      if(p.s<=0){p.s=0;p.phase='flight';p.tf=t;p.trail=[{z:0,y:0}];emit('takeoff',{round,player:p.k,timing:Math.round(J.err)});SFX.play('swoosh');}
+      if(p.s<=0){p.s=0;p.phase='flight';p.tf=t;p.trail=[{z:0,y:0}];emit('takeoff',{round,player:p.k,timing:Math.round(J.err)});SFX.play('skijump_glide');}
       const c=inrunAt(Math.max(0,p.s));p.pos.set(p.hx,c.y,c.z);p.pitch=c.a;}
   }
   else if(p.phase==='flight'){
@@ -483,7 +483,7 @@ function stepJumper(p,t,dt){
     const vy=J.vy0-J.g*tt,gam=Math.atan2(-vy,J.vz);p.pitch=gam-.5;p.v=Math.hypot(J.vz,vy);
     p.bal=J.bal*(.6*Math.sin(2.1*t+p.k.length)+.4*Math.sin(5.3*t+1.7));
     const k=Math.min(1,(t-p.tf)/.45);w={crouch:1-k,flight:k};spread=k;roll=.35*k+p.bal*.12;
-    if(tt>=J.T){p.phase='land';p.tl=t;p.s=landAt(J.zL).arc;p.v=Math.hypot(J.vz,vy)*.92;J.path=p.trail.slice();emit('landing',{round,player:p.k,distance:J.D});SFX.play('thud',.6);}
+    if(tt>=J.T){p.phase='land';p.tl=t;p.s=landAt(J.zL).arc;p.v=Math.hypot(J.vz,vy)*.92;J.path=p.trail.slice();emit('landing',{round,player:p.k,distance:J.D});SFX.play('skijump_landing');}
   }
   else if(p.phase==='land'||p.phase==='outrun'){
     const z=zForArc(p.s),L=landAt(z);

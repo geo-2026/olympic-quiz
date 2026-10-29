@@ -110,24 +110,34 @@ test('스냅샷 복구', () => {
   const sv = g2.studentView(ids[0]); assert.equal(sv.phase, 'READY'); assert.equal(sv.ready.no, 2);
 });
 
-test('묶음 종목은 정답·해설만 공개(secret) : 학생 view에 팀 통계·문항 승리 팀 없음, 장면 승패는 done 뒤에만. 문항별 종목은 그대로 공개', () => {
+test('모든 종목이 학생 화면에서는 비공개(secret) : 팀 통계·문항 승리 팀·장면 승패 모두 숨김. 호스트(관리자 코어)는 그대로 가진다.', () => {
   const { g, clock, ids } = setup(14, 4);
   g.startGame();
+  // 묶음 종목(줄다리기) 1~3번 : 학생 view에 teams/winner 없음, bundle 누적 S 값 없음
   for (let i = 0; i < 3; i++) {
     const r = playQuestion(g, clock, ids, ['O', 'O', 'X', null]);
-    assert.equal(r.secret, true); assert.ok(r.teams && r.winner);   // 호스트(관리자 코어)는 다 가짐 → 엑셀·집계용
+    assert.equal(r.secret, true); assert.ok(r.teams && r.winner);
     const sv = g.studentView(ids[0]).result;
     assert.equal(sv.secret, true); assert.equal(sv.teams, undefined); assert.equal(sv.winner, undefined);
-    assert.deepEqual(sv.answer, ['O']); assert.ok(sv.my);                 // 정답과 내 결과는 있음
-    assert.deepEqual(Object.keys(sv.bundle).sort(), ['done', 'gauge', 'name', 'of', 'sport']);   // 누적 S 값 없음
+    assert.deepEqual(sv.answer, ['O']); assert.ok(sv.my);
+    assert.deepEqual(Object.keys(sv.bundle).sort(), ['done', 'gauge', 'name', 'of', 'sport']);
     if (i < 2) g.next();
   }
   g.playScene();
+  // 학생의 scene은 done 전후 모두 winner/scores/result가 null (앞 화면에서만 공개)
   let sc = g.studentView(ids[0]).scene; assert.equal(sc.done, false); assert.equal(sc.winner, null); assert.equal(sc.result, null);
   g.sceneDone();
-  sc = g.studentView(ids[0]).scene; assert.equal(sc.done, true); assert.ok(['rabbit', 'cat', 'draw'].includes(sc.winner)); assert.ok(sc.result.rabbit.label);
-  g.next(); g.nextEvent();
+  sc = g.studentView(ids[0]).scene; assert.equal(sc.done, true); assert.equal(sc.winner, null); assert.equal(sc.result, null);
+  g.next();
+  // EVENT_SUMMARY : 학생 view는 종목 이름과 next만. totals·medals·leader는 숨김.
+  const svSum = g.studentView(ids[0]).summary; assert.ok(svSum.event && svSum.event.sport === 'tug');
+  assert.equal(svSum.totals, undefined); assert.equal(svSum.medals, undefined); assert.equal(svSum.leader, undefined);
+  g.nextEvent();
   for (let no = 4; no <= 12; no++) { playQuestion(g, clock, ids, ['O', 'O', 'X', 'X']); if (g.canPlayScene()) { g.playScene(); g.sceneDone(); } g.next(); if (g.phase === 'EVENT_SUMMARY') g.nextEvent(); }
-  const r = playQuestion(g, clock, ids, ['O', 'X', 'X', 'X']);   // 13번 = 양궁(문항별)
-  assert.equal(r.secret, false); const sv = g.studentView(ids[0]).result; assert.ok(sv.teams.rabbit.T >= 0); assert.ok(typeof sv.winner === 'string');
+  // 양궁(perShot)도 모두 secret, 학생 view에 teams/winner/shot.S 없음
+  const r = playQuestion(g, clock, ids, ['O', 'X', 'X', 'X']);
+  assert.equal(r.secret, true);
+  const sv = g.studentView(ids[0]).result;
+  assert.equal(sv.teams, undefined); assert.equal(sv.winner, undefined);
+  assert.equal(sv.shot.S, undefined);   // 발 진행만 보이고 발 Tsum은 숨김
 });

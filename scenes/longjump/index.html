@@ -86,7 +86,7 @@ function playResult(m){
   Object.values(PL).forEach(p=>{place(p,-33,0);pose(p,'stand');hud(p,'—','출발 대기');p.nextStep=0;p.tookOff=false;});
   B.show(`${play.questions.length||3}문항 합산 결과는?`,`${PL.rabbit.name} 대 ${PL.cat.name} · 모래밭에서 확인!`);   // 점수·승패는 착지해야 공개
   $('status').textContent='출발 준비';$('hm').textContent='1차 시기';
-  setTimeout(()=>{t0=performance.now();play.phase='run';$('status').textContent='도움닫기';SFX.play('whistle');},1700);return true;
+  setTimeout(()=>{t0=performance.now();play.phase='run';$('status').textContent='도움닫기';},1700);return true;
 }
 function step(ms){
   if(!play||play.phase==='ready')return;
@@ -94,10 +94,10 @@ function step(ms){
     const el=(ms-t0)/1000-play.start[p.k];if(el<0)return;
     const fail=play.fail[p.k],z0=fail?-1.3:-.05,D=play.D[p.k];
     if(el<RUN){const u=el/RUN,s=u*u*(3-2*u)*.7+u*.3;place(p,-33+( z0+33)*s,0);pose(p,'run',el);hud(p,'—','도움닫기');
-      if(el>=(p.nextStep||0)){p.nextStep=(p.nextStep||0)+.2;SFX.play('footstep',.6);}}
-    else if(el<RUN+FLY){if(!p.tookOff){p.tookOff=true;SFX.play('boing');SFX.play('swoosh',.7);$('hm').textContent='🎬 슬로 모션';$('status').textContent='비행 — 슬로 모션';}
+      if(el>=(p.nextStep||0)){p.nextStep=(p.nextStep||0)+.2;SFX.play('longjump_run');}}
+    else if(el<RUN+FLY){if(!p.tookOff){p.tookOff=true;SFX.play('longjump_fly');$('hm').textContent='🎬 슬로 모션';$('status').textContent='비행 — 슬로 모션';}
       const u=(el-RUN)/FLY,z=z0+(D-z0)*u,y=4*1.25*u*(1-u);place(p,z,y);pose(p,u<.75?'fly':'land',el);hud(p,'—','비행! 🎬');}
-    else if(!play.done[p.k]){play.done[p.k]=true;place(p,D,0);pose(p,fail?'sit':'land');hud(p,D.toFixed(2)+'m',fail?'엉덩방아…':'착지');puff(p,fail?2:1);mark(p,D);p.tLand=ms;SFX.play('stepSand');if(fail)SFX.play('thud');}
+    else if(!play.done[p.k]){play.done[p.k]=true;place(p,D,0);pose(p,fail?'sit':'land');hud(p,D.toFixed(2)+'m',fail?'엉덩방아…':'착지');puff(p,fail?2:1);mark(p,D);p.tLand=ms;SFX.play('longjump_landing');}
     else{const since=(ms-p.tLand)/1000;
       if(fail){pose(p,'sit');place(p,D+.1,0);p.f.body.rotation.x=-.5-.25*Math.min(1,since*2);}
       else if(since>.7){const w=play.winner===p.k;pose(p,w?'cheer':'stand');place(p,D+Math.min(1.5,(since-.7)*1.5),w&&!REDUCED?Math.abs(Math.sin(ms/1000*6))*.18:0);}}
@@ -105,7 +105,7 @@ function step(ms){
   if(play.phase==='run'&&play.done.rabbit&&play.done.cat){play.phase='end';
     const w=play.winner,wn=w==='draw'?null:PL[w];
     B.show(wn?`${wn.name} 승리!`:'무승부!',`${PL.rabbit.name} ${play.D.rabbit.toFixed(2)}m : ${play.D.cat.toFixed(2)}m ${PL.cat.name}`,true);
-    $('status').textContent=wn?`${wn.name} 승리`:'무승부';$('hm').textContent='1차 시기';if(wn)SFX.play('cheerShort');
+    $('status').textContent=wn?`${wn.name} 승리`:'무승부';$('hm').textContent='1차 시기';   // 승리 효과음은 재생하지 않음(17절)
     setTimeout(()=>{bridge.emit('done',{index:1,distances:play.D,winner:play.winner});busy=false;if(auto)setTimeout(demo,4000);},2000);}
 }
 function mark(p,D){const x=LANES[p.k];const g=new THREE.Group();scene.add(g);p.mark=g;

@@ -332,7 +332,7 @@ function fire(p,t){
   if(APP&&p.forced){ // 앱 모드 : 받은 점수에 맞는 거리에 탄흔. 탄흔 거리 = (10.9 − 점수) × 8mm + (0~0.8mm)
     const d=(10.9-p.forced.value)*8+Math.random()*.8,ang=Math.random()*Math.PI*2;s={x:d*Math.cos(ang),y:d*Math.sin(ang)};s.s=Math.round(p.forced.value*10)/10;}
   else{s={x:a.x+gauss()*1.2,y:a.y+gauss()*1.2};s.s=score(s.x,s.y);}
-  p.recoil=1;p.phase='after';p.t0=t;SFX.play('gunshot');
+  p.recoil=1;p.phase='after';p.t0=t;SFX.play('shooting_fire');
   // 탄 궤적
   const start=new THREE.Vector3();p.model.muzzle.getWorldPosition(start);
   const end=V(p.x+s.x*MM3,TY+s.y*MM3,TZ+.04);
@@ -342,7 +342,7 @@ function fire(p,t){
   const tg=new THREE.BufferGeometry().setFromPoints([start,start]);const tr=new THREE.Line(tg,new THREE.LineBasicMaterial({color:'#ffc23d',transparent:true,opacity:.85}));scene.add(tr);
   tween(REDUCED?60:380,k=>{pel.position.lerpVectors(start,end,k);tg.setFromPoints([new THREE.Vector3().lerpVectors(start,end,Math.max(0,k-.25)),pel.position.clone()]);},
     ()=>{scene.remove(pel);tween(300,k=>tr.material.opacity=.85*(1-k),()=>scene.remove(tr));
-      SFX.play('ping',.8);
+      // 사격은 발사 효과음만 쓴다(17절) : 명중 ping 소리를 재생하지 않는다.
       p.shots.push(s);p.total=Math.round((p.total+s.s)*10)/10;p.fired=true;
       paintTarget3D(p);updateCard(p,true);renderBoard();hud();
       emit('shot',{round,player:p.k,name:p.name,score:s.s,total:p.total});
@@ -367,7 +367,7 @@ function appRoundDone(){
   const wn=appWinner==='draw'?'무승부':`${(appWinner==='rabbit'?a:b).name} 승`;
   const el=$('banner');el.style.color=appWinner==='draw'?'#fff':(appWinner==='rabbit'?a:b).accent;
   showBanner(`${appIdx}/${appOf}발 · ${wn}`,`${a.name} ${sa.toFixed(1)} : ${sb.toFixed(1)} ${b.name} · 합계 ${a.total.toFixed(1)} : ${b.total.toFixed(1)}`);
-  if(appWinner!=='draw')SFX.play('cheerShort',.8);
+  // 사격은 승리 효과음을 재생하지 않는다(17절). 종목 끝 EVENT_SUMMARY에서도 fanfare 없음.
   setStatus();setTimeout(()=>emit('done',{index:appIdx,totals:{rabbit:a.total,cat:b.total}}),1500);
 }
 let bannerT=null;
