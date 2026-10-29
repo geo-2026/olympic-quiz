@@ -118,7 +118,7 @@ function renderResult(v) {
 function sceneHtml(s, t) {   // 승패·기록은 앞 화면 경기가 끝난 뒤(done)에만
   const title = `<div class="big">${sportById[s.sport].icon} ${esc(s.eventName)} ${s.mode === 'bundle' ? '' : `${s.index}/${s.of}발`}</div>`;
 
-  if (!s.done || !s.result) return `<div class="scene card"><div class="muted">📺 앞 화면에서 경기를 보세요</div>${title}<div class="muted small">경기가 끝나면 결과가 나와요</div></div>`;
+  if (!s.done || !s.result) return `<div class="scene card"><div class="muted">📺 앞 화면에서 경기를 보세요</div>${title}<div class="muted small">${s.done ? '📺 결과는 앞 화면에서 확인하세요' : '경기가 끝나면 결과가 나와요'}</div></div>`;
   const w = s.winner === 'draw' ? '무승부' : `${esc(TN(s.winner))} 승!`;
   const rec = s.mode === 'bundle' ? `${esc(s.result.rabbit.label)} vs ${esc(s.result.cat.label)}` : `${esc(s.result.rabbit.label)}점 vs ${esc(s.result.cat.label)}점`;
   return `<div class="scene card"><div class="muted">📺 앞 화면에서 경기를 보세요</div>${title}<div class="big ${s.winner === 'rabbit' ? 'r' : s.winner === 'cat' ? 'c' : ''}">${w}</div><div class="mono">${rec}</div></div>`;

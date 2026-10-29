@@ -108,10 +108,12 @@ const waitFor = async (page, fn, arg, timeout = 15000) => { try { await page.wai
       ok(sv.secret === true && sv.teams === undefined && sv.winner === undefined && sv.answer && sv.answer.length > 0 && sv.bundle && sv.bundle.S === undefined, '학생 : 정답은 받고 팀 통계·누적 점수는 못 받음');
       ok(await students[0].p.evaluate(() => document.body.innerText.includes('경기에서 공개') && !/\d+%/.test(document.body.innerText) && !document.body.innerText.includes('문항 승리')), '학생 화면 : 경기에서 공개 안내, 정답률(%)·문항 승리 없음');
     }
-    if (i === 12) {   // 13번 = 양궁(문항별) : 그대로 공개
-      const stg = await admin.$eval('#stage', e => e.innerText);
-      ok(r.secret === false && stg.includes('정답률'), '문항별 종목(양궁) : 정답률·문항 승리 공개');
-      const sv = await students[0].p.evaluate(() => OLQS.view.result); ok(sv.teams && sv.teams.rabbit && typeof sv.winner === 'string', '학생 : 문항별 종목은 팀 통계 표시');
+    if (i === 12) {   // 13번 = 양궁(perShot) 1발 1문항째 : 17절대로 비공개(secret=true)
+      const hasSecret = await admin.evaluate(() => !!document.querySelector('#stage .secretbox'));
+      const stgN = (await admin.$eval('#stage', e => e.innerText)).replace(/\s+/g, '');  // <b>태그 때문에 "경기 에서" 공백이 생겨 공백 제거 후 매칭
+      ok(r.secret === true && r.mode === 'perShot' && hasSecret && /양궁경기에서공개/.test(stgN), '양궁 perShot : 무대엔 경기에서 공개 안내만 (문항 1/2)');
+      const sv = await students[0].p.evaluate(() => OLQS.view.result);
+      ok(sv.secret === true && sv.teams === undefined && sv.winner === undefined && sv.shot && sv.shot.shotIndex === 1 && sv.shot.S === undefined, '학생 : 양궁도 비공개, 발 번호만(Tsum 없음)');
     }
     const can = await admin.evaluate(() => OLQ.game.canPlayScene());
     const info = await admin.evaluate(no => { const m = OLQ.game.state.events; return m.find(e => no >= e.from && no <= e.to); }, q.no);
@@ -124,9 +126,11 @@ const waitFor = async (page, fn, arg, timeout = 15000) => { try { await page.wai
       const svs = await students[0].p.evaluate(() => OLQS.view.scene); ok(svs && !svs.done && svs.winner === null && svs.result === null, '학생 : 경기 중에는 승패·기록 숨김');
       const barTxt = await admin.$eval('#scenebar', e => e.innerText); ok(info.mode === 'bundle' ? barTxt.includes('결과는 경기로') : /\d+\.\d/.test(barTxt), `장면 바 : ${info.mode === 'bundle' ? '묶음 점수 숨김' : '문항별 점수 표시'}`);
       const sc = await admin.evaluate(() => OLQ.game.state.scene);
-      if (info.mode === 'bundle') ok(sc.mode === 'bundle' && sc.questions.length === 3 && sc.of === 1, `묶음 장면 : 3문항 합산 ${JSON.stringify(sc.scores)} → ${sc.winner}`); else ok(sc.mode === 'perQuestion' && sc.of === info.to - info.from + 1, `문항별 장면 : ${sc.index}/${sc.of}발 → ${sc.winner}`);
+      if (info.mode === 'bundle') ok(sc.mode === 'bundle' && sc.questions.length === 3 && sc.of === 1, `묶음 장면 : 3문항 합산 ${JSON.stringify(sc.scores)} → ${sc.winner}`);
+      else if (info.mode === 'perShot') ok(sc.mode === 'perShot' && sc.questions.length === 2 && sc.of === Math.ceil((info.to - info.from + 1) / 2), `양궁 발별 장면 : 2문항 합산 ${sc.index}/${sc.of}발 → ${sc.winner}`);
+      else ok(sc.mode === 'perQuestion' && sc.of === info.to - info.from + 1, `문항별 장면 : ${sc.index}/${sc.of}발 → ${sc.winner}`);
       if (FULL_SCENES || scenesPlayed === 0) { const done = await waitFor(admin, () => OLQ.game.state.scene.done, null, 90000); ok(done, `${info.sport} 장면 done 수신`);
-        ok(await waitFor(students[0].p, () => OLQS.view.scene && OLQS.view.scene.done && OLQS.view.scene.result && /승|무승부/.test(document.body.innerText)), '학생 : 경기 끝 → 승패·기록 표시');
+        ok(await waitFor(students[0].p, () => OLQS.view.scene && OLQS.view.scene.done && document.body.innerText.includes('결과는 앞 화면에서') && OLQS.view.scene.winner === null && OLQS.view.scene.result === null), '학생 : 경기 끝 → 앞 화면 안내만, 승패/기록 숨김(17절)');
         ok((await admin.$eval('#scenebar', e => e.innerText)).includes(':'), '장면 바 : 경기 끝 → 점수 표시'); }
       else { await sleep(1500); await aclick('#btnSkipScene'); await sleep(200); }
       scenesPlayed++;
@@ -139,7 +143,7 @@ const waitFor = async (page, fn, arg, timeout = 15000) => { try { await page.wai
       const sm = await admin.evaluate(() => OLQ.game.state.summary);
       const txt = await admin.$eval('#stage', e => e.innerText);
       ok(txt.includes('앞서 있어요') || txt.includes('동점'), '전환 화면 : 점수 차이 표시 (' + sm.diff + '점)');
-      ok(await waitFor(students[2].p, () => OLQS.view.phase === 'EVENT_SUMMARY' && document.body.innerText.includes('메달')), '학생 : 전환 화면');
+      ok(await waitFor(students[2].p, () => OLQS.view.phase === 'EVENT_SUMMARY' && document.body.innerText.includes('결과는 앞 화면에서') && OLQS.view.summary && OLQS.view.summary.totals === undefined && OLQS.view.summary.medals === undefined), '학생 : 전환 화면 → 앞 화면 안내만(totals·medals 숨김)');
       if (q.no === 14) { ok(sm.isFinal, '마지막 종목 → 최종 결과 안내'); }
       await aclick('#cNextEvent'); await sleep(300);
     } else ok(ph === 'READY', `${q.no}번 → 다음 문항 READY`);
