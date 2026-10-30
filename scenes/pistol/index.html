@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;600&family=Share+Tech+Mono&display=swap">
 <style>
-/* Layout: 위 3D 사대(두 선수) → 가운데 두 선수의 표적을 좌우로 나란히(흔들리는 조준점) → 아래 발별 비교 전광판. 경기장 조명 아래 어두운 무대 한 가지 룩
+/* Layout: 정면 중계 고정(VIEWS.front) + 두 선수 양옆에 오버레이 2D 표적지. 아래엔 발별 전광판.
    앱 모드(?mode=app) : 탈락·슛오프 없이 1문항당 두 팀이 1발씩, 점수는 부모 창이 playResult로 정해 줌 */
 :root{
   --bg:#0c1424; --bg2:#13203a; --panel:#16243f; --line:#26385c;
@@ -21,42 +21,59 @@
 }
 html,body{background:var(--bg);color:var(--fg)}
 body{font-family:var(--body);font-size:14px;line-height:1.55}
-.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 40px;display:flex;flex-direction:column;gap:16px}
+.wrap{max-width:1280px;margin:0 auto;padding:20px 16px 40px;display:flex;flex-direction:column;gap:16px}
 header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:8px 20px}
 .eyebrow{font-family:var(--mono);color:var(--cyan);letter-spacing:.14em;font-size:12px;text-transform:uppercase}
 h1{font-family:var(--display);font-weight:400;font-size:clamp(28px,5vw,46px);line-height:1.05;margin:2px 0 0;text-wrap:balance}
 h1 .r{color:var(--rabbit)} h1 .c{color:var(--cat)}
 .status{font-family:var(--mono);font-size:15px;color:var(--led);background:#000;border:1px solid var(--line);border-radius:8px;padding:8px 12px}
 .status b{font-weight:400;color:var(--fg)}
+
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;position:relative}
-.range{aspect-ratio:16/7;width:100%;max-width:100%;position:relative;container-type:inline-size;background:var(--bg2)}
-.range canvas{display:block;width:100%;height:100%;touch-action:pan-y;cursor:grab}
-.range canvas:active{cursor:grabbing}
-.hud{position:absolute;left:2%;top:4%;display:flex;gap:8px;pointer-events:none;flex-wrap:wrap}
+/* 중계 화면 : 16:9 로 넓게 → 양쪽 오버레이 표적지가 캐릭터를 가리지 않음 */
+.range{aspect-ratio:16/9;width:100%;max-width:100%;position:relative;container-type:inline-size;background:var(--bg2)}
+.range canvas{display:block;width:100%;height:100%;touch-action:pan-y}
+.hud{position:absolute;left:50%;top:3%;transform:translateX(-50%);display:flex;gap:8px;pointer-events:none;flex-wrap:wrap;z-index:3}
 .chip{font-family:var(--mono);font-size:max(12px,1.35cqw);background:rgba(0,0,0,.6);color:var(--fg);padding:4px 10px;border-radius:8px}
-.drag{position:absolute;left:2%;bottom:5%;font-family:var(--mono);font-size:max(11px,1.2cqw);color:var(--muted);background:rgba(0,0,0,.45);padding:3px 8px;border-radius:6px;pointer-events:none}
-.banner{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%) scale(.7);opacity:0;transition:.4s cubic-bezier(.2,1.5,.4,1);pointer-events:none;text-align:center;
+.banner{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%) scale(.7);opacity:0;transition:.4s cubic-bezier(.2,1.5,.4,1);pointer-events:none;text-align:center;z-index:4;
   font-family:var(--display);font-size:max(30px,6.4cqw);line-height:1.05;text-shadow:0 .4cqw 1.6cqw rgba(0,0,0,.7)}
 .banner small{display:block;font-family:var(--mono);font-size:max(13px,1.8cqw);color:var(--fg);margin-top:.6cqw}
 .banner.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
 
-.targets{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.tcard{padding:14px;display:flex;flex-direction:column;gap:10px;border-top:4px solid var(--pc)}
-.tcard.rabbit{--pc:var(--rabbit)} .tcard.cat{--pc:var(--cat)}
-.thead{display:flex;align-items:center;gap:10px}
-.thead img{width:42px;height:42px;image-rendering:pixelated;border-radius:6px}
-.thead .nm{font-family:var(--display);font-size:22px;color:var(--pc);line-height:1}
-.thead .st{font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:.06em}
-.thead .score{margin-left:auto;text-align:right;font-family:var(--mono);line-height:1}
-.thead .score .now{font-size:40px;color:var(--led);font-variant-numeric:tabular-nums}
-.thead .score .now.pop{animation:pop .4s ease-out}
-.thead .score .tot{font-size:13px;color:var(--muted);margin-top:4px}
+/* 캐릭터 옆 오버레이 표적 카드 — 좌(고양이) · 우(토끼), 세로 가운데.
+   캐릭터를 가리지 않도록 폭을 min(18%, 210px)로 좁히고 글자 크기도 함께 축소. */
+.sidetarget{position:absolute;top:50%;transform:translateY(-50%);width:min(18%,210px);
+  background:rgba(12,20,36,.82);border:1px solid var(--line);border-radius:12px;
+  padding:8px 9px;display:flex;flex-direction:column;gap:6px;
+  border-top:3px solid var(--pc);box-shadow:0 8px 28px rgba(0,0,0,.55);backdrop-filter:blur(6px);
+  z-index:2}
+.sidetarget.rabbit{--pc:var(--rabbit)}
+.sidetarget.cat{--pc:var(--cat)}
+.st-left{left:1.5%}
+.st-right{right:1.5%}
+.sidetarget .thead{display:flex;align-items:center;gap:6px}
+.sidetarget .thead img{width:24px;height:24px;image-rendering:pixelated;border-radius:4px}
+.sidetarget .nm{font-family:var(--display);color:var(--pc);font-size:max(12px,1.3cqw);line-height:1}
+.sidetarget .st{font-family:var(--mono);color:var(--muted);font-size:max(9px,.9cqw);letter-spacing:.04em}
+.sidetarget .score{margin-left:auto;text-align:right;font-family:var(--mono);line-height:1}
+.sidetarget .now{font-size:max(18px,2cqw);color:var(--led);font-variant-numeric:tabular-nums}
+.sidetarget .now.pop{animation:pop .4s ease-out}
+.sidetarget .tot{font-size:max(10px,1cqw);color:var(--muted);margin-top:3px}
 @keyframes pop{from{transform:scale(1.4)}}
-.tcard canvas{width:100%;max-width:min(100%,440px);align-self:center;aspect-ratio:1;border-radius:12px;background:var(--paper)}
-.legend{display:flex;justify-content:space-between;font-family:var(--mono);color:var(--muted);font-size:12px}
-.series{display:flex;flex-wrap:wrap;gap:4px;font-family:var(--mono);font-size:12px;min-height:22px}
-.series span{padding:1px 6px;border-radius:4px;background:#0b1322;color:var(--muted)}
-.series span.last{background:var(--pc);color:#1a0f00}
+.sidetarget canvas{width:100%;aspect-ratio:1;border-radius:8px;background:var(--paper);display:block}
+.sidetarget .legend{display:flex;justify-content:space-between;font-family:var(--mono);color:var(--muted);font-size:max(9px,.9cqw)}
+.sidetarget .series{display:flex;flex-wrap:wrap;gap:3px;font-family:var(--mono);font-size:max(9px,.95cqw);min-height:16px}
+.sidetarget .series span{padding:1px 5px;border-radius:3px;background:#0b1322;color:var(--muted)}
+.sidetarget .series span.last{background:var(--pc);color:#1a0f00}
+
+/* 좁은 화면에서는 카드를 더 작게 */
+@container (max-width:720px){
+  .sidetarget{width:24%;padding:6px 8px;gap:5px}
+  .sidetarget .legend,.sidetarget .series{display:none}
+}
+@container (max-width:480px){
+  .sidetarget{width:28%}
+}
 
 .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .btn{font-family:var(--body);font-weight:600;font-size:14px;border-radius:10px;padding:10px 16px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
@@ -64,7 +81,6 @@ h1 .r{color:var(--rabbit)} h1 .c{color:var(--cat)}
 .btn[aria-pressed="true"]{background:var(--cyan);color:#001521;border-color:var(--cyan)}
 .btn:disabled{opacity:.45;cursor:default}
 .btn:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
-.sep{width:1px;height:28px;background:var(--line)}
 
 .board{padding:14px;display:flex;flex-direction:column;gap:10px}
 .board h2{font-family:var(--display);font-weight:400;font-size:18px;margin:0}
@@ -81,10 +97,8 @@ tr.leader td:first-child .who::after{content:"선두";font-size:11px;font-weight
 .credit{font-size:12px;color:var(--muted);margin:0}
 html.ui-min header,html.ui-min .controls,html.ui-min .board{display:none}
 html.ui-min .wrap{padding-block:8px;gap:10px}
-html.app .drag{display:none}
-html.app .tcard canvas{max-width:min(100%,340px)}
-html.app .range{aspect-ratio:16/8}   /* 다른 종목 장면과 같은 화면 크기 */
-@media (max-width:640px){.targets{grid-template-columns:1fr}.thead .score .now{font-size:32px}}
+/* 앱 모드(관리자 iframe) : 다른 종목 장면과 가로 비율을 맞춤 */
+html.app .range{aspect-ratio:16/8}
 </style>
 <style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
@@ -103,7 +117,28 @@ html.app .range{aspect-ratio:16/8}   /* 다른 종목 장면과 같은 화면 �
     <div class="range" id="range">
       <div class="hud"><span class="chip" id="hudShot"></span><span class="chip" id="hudTot"></span></div>
       <div class="banner" id="banner"></div>
-      <div class="drag">드래그: 시점 회전 · 휠: 확대</div>
+
+      <!-- 캐릭터 옆 오버레이 표적 : 정면 중계 시점에서 화면 왼쪽에 고양이, 오른쪽에 토끼가 서므로 그에 맞춰 좌우 배치 -->
+      <aside class="sidetarget cat st-left" id="card-cat">
+        <div class="thead">
+          <img id="av-cat" alt="">
+          <div><div class="nm" id="nm-cat">고양이의 표적</div><div class="st" id="st-cat">LANE 2 · 대기</div></div>
+          <div class="score"><div class="now" id="now-cat">—</div><div class="tot" id="tot-cat">합계 0.0</div></div>
+        </div>
+        <canvas id="cv-cat" width="560" height="560" aria-label="고양이의 표적"></canvas>
+        <div class="legend"><span>빨간 십자: 조준점</span><span id="avg-cat">평균 —</span></div>
+        <div class="series" id="se-cat"></div>
+      </aside>
+      <aside class="sidetarget rabbit st-right" id="card-rabbit">
+        <div class="thead">
+          <img id="av-rabbit" alt="">
+          <div><div class="nm" id="nm-rabbit">토끼의 표적</div><div class="st" id="st-rabbit">LANE 1 · 대기</div></div>
+          <div class="score"><div class="now" id="now-rabbit">—</div><div class="tot" id="tot-rabbit">합계 0.0</div></div>
+        </div>
+        <canvas id="cv-rabbit" width="560" height="560" aria-label="토끼의 표적"></canvas>
+        <div class="legend"><span>빨간 십자: 조준점</span><span id="avg-rabbit">평균 —</span></div>
+        <div class="series" id="se-rabbit"></div>
+      </aside>
     </div>
   </div>
 
@@ -112,26 +147,7 @@ html.app .range{aspect-ratio:16/8}   /* 다른 종목 장면과 같은 화면 �
     <button class="btn" id="auto" aria-pressed="true">자동 진행</button>
     <button class="btn" id="reset">처음부터</button>
     <span class="sep" aria-hidden="true"></span>
-    <button class="btn" id="vFront" aria-pressed="true">정면 중계</button>
-    <button class="btn" id="vBack" aria-pressed="false">어깨 너머</button>
-    <button class="btn" id="vWide" aria-pressed="false">선수+표적</button>
-  </div>
-
-  <div class="targets">
-    <section class="card tcard rabbit" id="card-rabbit">
-      <div class="thead"><img id="av-rabbit" alt=""><div><div class="nm" id="nm-rabbit">토끼의 표적</div><div class="st" id="st-rabbit">LANE 1 · 대기</div></div>
-        <div class="score"><div class="now" id="now-rabbit">—</div><div class="tot" id="tot-rabbit">합계 0.0</div></div></div>
-      <canvas id="cv-rabbit" width="560" height="560" aria-label="토끼의 표적"></canvas>
-      <div class="legend"><span>빨간 십자: 조준점 · 흐린 선: 흔들린 궤적</span><span id="avg-rabbit">평균 —</span></div>
-      <div class="series" id="se-rabbit"></div>
-    </section>
-    <section class="card tcard cat" id="card-cat">
-      <div class="thead"><img id="av-cat" alt=""><div><div class="nm" id="nm-cat">고양이의 표적</div><div class="st" id="st-cat">LANE 2 · 대기</div></div>
-        <div class="score"><div class="now" id="now-cat">—</div><div class="tot" id="tot-cat">합계 0.0</div></div></div>
-      <canvas id="cv-cat" width="560" height="560" aria-label="고양이의 표적"></canvas>
-      <div class="legend"><span>빨간 십자: 조준점 · 흐린 선: 흔들린 궤적</span><span id="avg-cat">평균 —</span></div>
-      <div class="series" id="se-cat"></div>
-    </section>
+    <span style="font-family:var(--mono);color:var(--muted);font-size:12px">시점 : <b style="color:var(--cyan)">정면 중계 고정</b></span>
   </div>
 
   <section class="card board">
@@ -192,8 +208,8 @@ const renderer=new THREE.WebGLRenderer({antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputEncoding=THREE.sRGBEncoding;
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 range.prepend(renderer.domElement);
-const scene=new THREE.Scene();scene.background=new THREE.Color('#0c1424');scene.fog=new THREE.Fog('#0c1424',18,40);   // 넓은 시점에서 표적(약 16m)이 안개에 묻히지 않게
-const camera=new THREE.PerspectiveCamera(38,16/7,.05,60);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#0c1424');scene.fog=new THREE.Fog('#0c1424',18,40);
+const camera=new THREE.PerspectiveCamera(36,16/9,.05,60);
 scene.add(new THREE.HemisphereLight('#cfe0ff','#16203a',.6));
 const key=new THREE.DirectionalLight('#ffffff',.75);key.position.set(3,8,-4);key.castShadow=true;key.shadow.mapSize.set(2048,2048);
 Object.assign(key.shadow.camera,{left:-5,right:5,top:5,bottom:-5,near:1,far:22});scene.add(key);
@@ -269,12 +285,17 @@ function makeShooter(k,laneNo,accent){
   return {fig,body,arm,gun,muzzle,lArm,head};
 }
 
+/* 캐릭터 간격·크기 축소 : 레인은 그대로지만 선수와 3D 표적을 가운데로 모으고 figure 전체 scale 을 0.78로 줄여
+   화면에서 더 작게 보이게 함. 사격 로직은 world 좌표를 그대로 쓰므로 탄착·3D 표적 애니메이션에 영향 없음. */
+const CHAR_SCALE=.78;
 const P=[
-  {k:'rabbit',name:'토끼',lane:1,x:-.95,accent:'#ff8fb6',col:'rgba(255,143,182,.7)'},
-  {k:'cat',name:'고양이',lane:2,x:.95,accent:'#ffa64d',col:'rgba(255,166,77,.7)'},
+  {k:'rabbit',name:'토끼',lane:1,x:-.6,accent:'#ff8fb6',col:'rgba(255,143,182,.7)'},
+  {k:'cat',name:'고양이',lane:2,x:.6,accent:'#ffa64d',col:'rgba(255,166,77,.7)'},
 ];
 P.forEach(p=>{
-  p.model=makeShooter(p.k,p.lane,p.accent);p.model.fig.position.set(p.x,0,.1);scene.add(p.model.fig);
+  p.model=makeShooter(p.k,p.lane,p.accent);
+  p.model.fig.position.set(p.x,0,.1);p.model.fig.scale.setScalar(CHAR_SCALE);
+  scene.add(p.model.fig);
   // 3D 표적
   const g=new THREE.Group();g.position.set(p.x,0,TZ);
   const pole=new THREE.Mesh(new THREE.BoxGeometry(.05,1.14,.05),solid('#56627d'));pole.position.y=.57;g.add(pole);
@@ -390,7 +411,7 @@ function setStatus(msg){
 }
 function hud(){$('hudShot').textContent=APP?`${appIdx}/${appOf}발`:`${Math.min(Math.max(round,1),SHOTS)}/${SHOTS}발`;$('hudTot').textContent=`합계 ${P[0].name} ${P[0].total.toFixed(1)} : ${P[1].total.toFixed(1)} ${P[1].name}`;}
 
-/* ---------- 패널 ---------- */
+/* ---------- 오버레이 표적 카드 ---------- */
 function updateCard(p,pop){
   const last=p.shots.at(-1),now=$('now-'+p.k);
   now.textContent=last?last.s.toFixed(1):'—';
@@ -398,22 +419,22 @@ function updateCard(p,pop){
   $('tot-'+p.k).textContent=`합계 ${p.total.toFixed(1)}`;
   const n=p.shots.length;$('avg-'+p.k).textContent=n?`평균 ${(p.total/n).toFixed(2)}`:'평균 —';
   $('se-'+p.k).innerHTML=p.shots.map((s,i)=>`<span class="${i===n-1?'last':''}">${s.s.toFixed(1)}</span>`).join('');
+  drawTargetFor(p);
 }
 function paintTarget3D(p){drawTarget(p.tcv.getContext('2d'),320,VIEW3D,p.shots);p.tex.needsUpdate=true;}
-const PHASE_LABEL={down:'총을 내리고 호흡 고르는 중',raise:'총을 들어 올리는 중',aim:'조준 중',after:'사격!',lower:'총을 내리는 중'};
-function drawPanel(p,t){
+const PHASE_LABEL={down:'총을 내리고 호흡',raise:'총 들어 올리는 중',aim:'조준 중',after:'사격!',lower:'총을 내리는 중'};
+// 오버레이 캔버스(cv-*)에 그리기 — 조준 중이면 흔들린 궤적 + 조준점 십자, 그 외엔 탄착점만
+function drawTargetFor(p){
   const x=p.ctx,W=560,view=46,c=W/2,k=c/view;
   drawTarget(x,W,view,p.shots,{nums:true,col:p.col});
   if(p.phase==='raise'||p.phase==='aim'){
-    // 흔들린 궤적
-    if(p.trail.length>1){x.beginPath();p.trail.forEach((a,i)=>{const px=c+a.x*k,py=c-a.y*k;i?x.lineTo(px,py):x.moveTo(px,py);});
+    if(p.trail&&p.trail.length>1){x.beginPath();p.trail.forEach((a,i)=>{const px=c+a.x*k,py=c-a.y*k;i?x.lineTo(px,py):x.moveTo(px,py);});
       x.strokeStyle='rgba(255,59,59,.35)';x.lineWidth=2;x.stroke();}
-    const a=p.aim,px=c+a.x*k,py=c-a.y*k;
+    const a=p.aim||{x:0,y:-140},px=c+a.x*k,py=c-a.y*k;
     x.strokeStyle='#ff3b3b';x.lineWidth=3;
     x.beginPath();x.arc(px,py,16,0,Math.PI*2);x.stroke();
     x.beginPath();x.moveTo(px-28,py);x.lineTo(px-8,py);x.moveTo(px+8,py);x.lineTo(px+28,py);x.moveTo(px,py-28);x.lineTo(px,py-8);x.moveTo(px,py+8);x.lineTo(px,py+28);x.stroke();
     x.fillStyle='#ff3b3b';x.beginPath();x.arc(px,py,3,0,Math.PI*2);x.fill();
-    // 지금 쏘면 몇 점?
     if(!APP){x.fillStyle='rgba(12,20,36,.82)';x.fillRect(12,12,180,34);x.fillStyle='#ffc23d';x.font='20px "Share Tech Mono",monospace';x.textAlign='left';x.textBaseline='middle';
       x.fillText(`조준점 ${score(a.x,a.y).toFixed(1)}`,22,29);}
   }
@@ -432,13 +453,12 @@ function renderBoard(){
 const tweens=[];function tween(d,fn,done){tweens.push({t0:performance.now(),d,fn,done});}
 const pelGeo=new THREE.BoxGeometry(.014,.014,.014),pelMat=new THREE.MeshBasicMaterial({color:'#ffc23d'});
 const puffTex=ctex(pxCanvas(64,64,x=>{const g=x.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,'rgba(255,255,255,.9)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,64,64);}));
-// wide : 사대 뒤 위에서 두 선수와 10m 앞 표적이 한 화면에 들어오는 시점(앱 모드 기본)
-const VIEWS={front:{yaw:3.55,pitch:.12,dist:3.9,look:V(0,1.3,-.6)},back:{yaw:.3,pitch:.1,dist:4.2,look:V(0,1.3,-3)},wide:{yaw:.3,pitch:.25,dist:10.3,look:V(0,.9,-5),fov:38}};
-let view='front';const cam={...VIEWS.front};const camPos=V(0,2,-5),lookCur=V(0,1.3,-1);let snap=true,drag=null;
-renderer.domElement.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};renderer.domElement.setPointerCapture(e.pointerId);});
-renderer.domElement.addEventListener('pointermove',e=>{if(!drag)return;cam.yaw-=(e.clientX-drag.x)*.006;cam.pitch=Math.max(-.02,Math.min(1.1,cam.pitch+(e.clientY-drag.y)*.004));drag={x:e.clientX,y:e.clientY};});
-renderer.domElement.addEventListener('pointerup',()=>drag=null);
-renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();cam.dist=Math.max(1.6,Math.min(12,cam.dist*(e.deltaY>0?1.1:.9)));},{passive:false});
+/* 정면 중계로 고정 — 캐릭터 간격·크기를 줄였으므로 카메라도 가까이·fov 넓게 재조정해
+   화면에 두 선수가 적당한 크기로 가운데에 모이고 양쪽 오버레이와 겹치지 않게 함. */
+const FRONT={yaw:3.55,pitch:.17,dist:4.6,look:V(0,1.4,-.3),fov:36};
+const cam={...FRONT};const camPos=V(0,2,-5),lookCur=V(0,1.3,-1);let snap=true;
+camera.fov=FRONT.fov;camera.updateProjectionMatrix();
+/* 시점 전환·드래그·휠 모두 비활성 — 중계 화면이 흔들리지 않음 */
 function resize(){const w=range.clientWidth,h=range.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
 new ResizeObserver(resize).observe(range);resize();
 let lastT=performance.now();
@@ -468,7 +488,7 @@ function loop(ms){
     // 승리 세리머니
     if(over&&winner===p){m.fig.position.y=Math.abs(Math.sin(t*5))*.12*s;m.lArm.rotation.z+=(-2.7-m.lArm.rotation.z)*dt*5;}
     else{m.fig.position.y*=.9;m.lArm.rotation.z+=(-.12-m.lArm.rotation.z)*dt*5;}
-    drawPanel(p,t);
+    drawTargetFor(p);
   });
   const L=cam.look,d=cam.dist;
   const want=V(L.x+Math.sin(cam.yaw)*Math.cos(cam.pitch)*d,L.y+Math.sin(cam.pitch)*d,L.z+Math.cos(cam.yaw)*Math.cos(cam.pitch)*d);
@@ -476,8 +496,6 @@ function loop(ms){
   const k=1-Math.pow(.03,dt);camPos.lerp(want,k);lookCur.lerp(L,k);camera.position.copy(camPos);camera.lookAt(lookCur);
   renderer.render(scene,camera);requestAnimationFrame(loop);
 }
-function setView(v){view=v;Object.assign(cam,VIEWS[v]);camera.fov=VIEWS[v].fov||38;camera.updateProjectionMatrix();['front','back','wide'].forEach(k=>$('v'+k[0].toUpperCase()+k.slice(1)).setAttribute('aria-pressed',v===k));}
-$('vFront').onclick=()=>setView('front');$('vBack').onclick=()=>setView('back');$('vWide').onclick=()=>setView('wide');
 $('next').onclick=()=>{autoOn=false;$('auto').setAttribute('aria-pressed','false');clearTimeout(timer);nextRound();};
 $('auto').onclick=()=>{autoOn=!autoOn;$('auto').setAttribute('aria-pressed',autoOn);clearTimeout(timer);if(autoOn){if(over)resetAll();else if(P.every(p=>p.fired))timer=setTimeout(nextRound,400);}};
 $('reset').onclick=resetAll;
@@ -528,7 +546,7 @@ window.addEventListener('message',e=>{const m=e.data;if(!m||m.type!=='pistolDuel
 // 주소 옵션: ?names=1모둠,2모둠 &shots=5 &auto=0 &ui=min &mode=app
 if(Q.get('auto')==='0'||APP){autoOn=false;$('auto').setAttribute('aria-pressed','false');}
 if(Q.get('ui')==='min'||APP)document.documentElement.classList.add('ui-min');
-if(APP){document.documentElement.classList.add('app');setView('wide');snap=true;}else SFX.set(true,.6);
+if(APP){document.documentElement.classList.add('app');snap=true;}else SFX.set(true,.6);
 resetAll();
 if(Q.get('names')){const n=Q.get('names').split(',');setNames(n[0],n[1]);}
 requestAnimationFrame(loop);
