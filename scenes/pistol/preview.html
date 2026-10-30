@@ -41,10 +41,11 @@ h1 .r{color:var(--rabbit)} h1 .c{color:var(--cat)}
 .banner small{display:block;font-family:var(--mono);font-size:max(13px,1.8cqw);color:var(--fg);margin-top:.6cqw}
 .banner.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
 
-/* 캐릭터 옆 오버레이 표적 카드 — 좌(토끼) · 우(고양이), 세로 가운데 */
-.sidetarget{position:absolute;top:50%;transform:translateY(-50%);width:min(27%,300px);
+/* 캐릭터 옆 오버레이 표적 카드 — 좌(고양이) · 우(토끼), 세로 가운데.
+   캐릭터를 가리지 않도록 폭을 min(22%, 260px)로 좁히고 세로도 자연스럽게 압축. */
+.sidetarget{position:absolute;top:50%;transform:translateY(-50%);width:min(22%,260px);
   background:rgba(12,20,36,.82);border:1px solid var(--line);border-radius:12px;
-  padding:10px 12px;display:flex;flex-direction:column;gap:8px;
+  padding:9px 10px;display:flex;flex-direction:column;gap:7px;
   border-top:4px solid var(--pc);box-shadow:0 8px 28px rgba(0,0,0,.55);backdrop-filter:blur(6px);
   z-index:2}
 .sidetarget.rabbit{--pc:var(--rabbit)}
@@ -432,8 +433,9 @@ function renderBoard(){
 const tweens=[];function tween(d,fn,done){tweens.push({t0:performance.now(),d,fn,done});}
 const pelGeo=new THREE.BoxGeometry(.014,.014,.014),pelMat=new THREE.MeshBasicMaterial({color:'#ffc23d'});
 const puffTex=ctex(pxCanvas(64,64,x=>{const g=x.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,'rgba(255,255,255,.9)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,64,64);}));
-/* 정면 중계로 고정 — 어깨 너머·선수+표적 시점은 미리보기에서 제거 */
-const FRONT={yaw:3.55,pitch:.12,dist:3.9,look:V(0,1.3,-.6),fov:38};
+/* 정면 중계로 고정 — 캐릭터가 양쪽 오버레이에 가리지 않게 거리(dist)를 늘려 두 선수를 가운데로 모으고,
+   피치를 살짝 올려 다리 그림자가 아닌 상체·총 자세가 더 잘 보이게 함. 어깨 너머·선수+표적 시점은 미리보기에서 제거. */
+const FRONT={yaw:3.55,pitch:.18,dist:5.4,look:V(0,1.4,-.5),fov:34};
 const cam={...FRONT};const camPos=V(0,2,-5),lookCur=V(0,1.3,-1);let snap=true;
 camera.fov=FRONT.fov;camera.updateProjectionMatrix();
 /* 미리보기는 드래그·휠 시점 전환을 막아 "중계 고정" 느낌을 유지 */
