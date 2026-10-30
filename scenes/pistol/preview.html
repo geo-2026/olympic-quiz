@@ -42,22 +42,22 @@ h1 .r{color:var(--rabbit)} h1 .c{color:var(--cat)}
 .banner.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
 
 /* 캐릭터 옆 오버레이 표적 카드 — 좌(고양이) · 우(토끼), 세로 가운데.
-   캐릭터를 가리지 않도록 폭을 min(22%, 260px)로 좁히고 세로도 자연스럽게 압축. */
-.sidetarget{position:absolute;top:50%;transform:translateY(-50%);width:min(22%,260px);
+   캐릭터를 가리지 않도록 폭을 min(18%, 210px)로 더 줄이고 글자 크기도 함께 축소. */
+.sidetarget{position:absolute;top:50%;transform:translateY(-50%);width:min(18%,210px);
   background:rgba(12,20,36,.82);border:1px solid var(--line);border-radius:12px;
-  padding:9px 10px;display:flex;flex-direction:column;gap:7px;
-  border-top:4px solid var(--pc);box-shadow:0 8px 28px rgba(0,0,0,.55);backdrop-filter:blur(6px);
+  padding:8px 9px;display:flex;flex-direction:column;gap:6px;
+  border-top:3px solid var(--pc);box-shadow:0 8px 28px rgba(0,0,0,.55);backdrop-filter:blur(6px);
   z-index:2}
 .sidetarget.rabbit{--pc:var(--rabbit)}
 .sidetarget.cat{--pc:var(--cat)}
 .st-left{left:1.5%}
 .st-right{right:1.5%}
-.sidetarget .thead{display:flex;align-items:center;gap:8px}
-.sidetarget .thead img{width:30px;height:30px;image-rendering:pixelated;border-radius:4px}
-.sidetarget .nm{font-family:var(--display);color:var(--pc);font-size:max(14px,1.6cqw);line-height:1}
-.sidetarget .st{font-family:var(--mono);color:var(--muted);font-size:max(10px,1cqw);letter-spacing:.04em}
+.sidetarget .thead{display:flex;align-items:center;gap:6px}
+.sidetarget .thead img{width:24px;height:24px;image-rendering:pixelated;border-radius:4px}
+.sidetarget .nm{font-family:var(--display);color:var(--pc);font-size:max(12px,1.3cqw);line-height:1}
+.sidetarget .st{font-family:var(--mono);color:var(--muted);font-size:max(9px,.9cqw);letter-spacing:.04em}
 .sidetarget .score{margin-left:auto;text-align:right;font-family:var(--mono);line-height:1}
-.sidetarget .now{font-size:max(22px,2.4cqw);color:var(--led);font-variant-numeric:tabular-nums}
+.sidetarget .now{font-size:max(18px,2cqw);color:var(--led);font-variant-numeric:tabular-nums}
 .sidetarget .now.pop{animation:pop .4s ease-out}
 .sidetarget .tot{font-size:max(10px,1cqw);color:var(--muted);margin-top:3px}
 @keyframes pop{from{transform:scale(1.4)}}
@@ -278,12 +278,17 @@ function makeShooter(k,laneNo,accent){
   return {fig,body,arm,gun,muzzle,lArm,head};
 }
 
+/* 캐릭터 간격·크기 축소(미리보기) : 레인은 그대로지만 선수와 3D 표적을 가운데로 모으고
+   figure 전체 scale 을 0.78로 줄여 화면에서 더 작게 보이게 함. 사격 로직은 world 좌표를 그대로 쓰므로 변경 없음. */
+const CHAR_SCALE=.78;
 const P=[
-  {k:'rabbit',name:'토끼',lane:1,x:-.95,accent:'#ff8fb6',col:'rgba(255,143,182,.7)'},
-  {k:'cat',name:'고양이',lane:2,x:.95,accent:'#ffa64d',col:'rgba(255,166,77,.7)'},
+  {k:'rabbit',name:'토끼',lane:1,x:-.6,accent:'#ff8fb6',col:'rgba(255,143,182,.7)'},
+  {k:'cat',name:'고양이',lane:2,x:.6,accent:'#ffa64d',col:'rgba(255,166,77,.7)'},
 ];
 P.forEach(p=>{
-  p.model=makeShooter(p.k,p.lane,p.accent);p.model.fig.position.set(p.x,0,.1);scene.add(p.model.fig);
+  p.model=makeShooter(p.k,p.lane,p.accent);
+  p.model.fig.position.set(p.x,0,.1);p.model.fig.scale.setScalar(CHAR_SCALE);
+  scene.add(p.model.fig);
   const g=new THREE.Group();g.position.set(p.x,0,TZ);
   const pole=new THREE.Mesh(new THREE.BoxGeometry(.05,1.14,.05),solid('#56627d'));pole.position.y=.57;g.add(pole);
   const back=new THREE.Mesh(new THREE.BoxGeometry(.66,.66,.06),solid('#2a3654'));back.position.y=TY;back.castShadow=true;g.add(back);
@@ -433,9 +438,10 @@ function renderBoard(){
 const tweens=[];function tween(d,fn,done){tweens.push({t0:performance.now(),d,fn,done});}
 const pelGeo=new THREE.BoxGeometry(.014,.014,.014),pelMat=new THREE.MeshBasicMaterial({color:'#ffc23d'});
 const puffTex=ctex(pxCanvas(64,64,x=>{const g=x.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,'rgba(255,255,255,.9)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,64,64);}));
-/* 정면 중계로 고정 — 캐릭터가 양쪽 오버레이에 가리지 않게 거리(dist)를 늘려 두 선수를 가운데로 모으고,
-   피치를 살짝 올려 다리 그림자가 아닌 상체·총 자세가 더 잘 보이게 함. 어깨 너머·선수+표적 시점은 미리보기에서 제거. */
-const FRONT={yaw:3.55,pitch:.18,dist:5.4,look:V(0,1.4,-.5),fov:34};
+/* 정면 중계로 고정 — 캐릭터 간격·크기를 더 줄였으므로 카메라도 가까이·fov 넓게 재조정해
+   화면에 두 선수가 적당한 크기로 가운데에 모이고 양쪽 오버레이와 겹치지 않게 함.
+   어깨 너머·선수+표적 시점은 미리보기에서 제거. */
+const FRONT={yaw:3.55,pitch:.17,dist:4.6,look:V(0,1.4,-.3),fov:36};
 const cam={...FRONT};const camPos=V(0,2,-5),lookCur=V(0,1.3,-1);let snap=true;
 camera.fov=FRONT.fov;camera.updateProjectionMatrix();
 /* 미리보기는 드래그·휠 시점 전환을 막아 "중계 고정" 느낌을 유지 */
